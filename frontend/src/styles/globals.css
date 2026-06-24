@@ -1,0 +1,25 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--zx-bg);
+  color: var(--zx-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -3,7 +3,20 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health
+from app.api import (
+    cases,
+    dashboard,
+    dictionaries,
+    embeddings,
+    evaluation,
+    events,
+    health,
+    rag,
+    reports,
+)
+from app.api import (
+    settings as settings_router,
+)
 from app.core.config import settings
 from app.core.logging import logger
 from app.db.init_db import initialize_database
@@ -34,3 +47,12 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+app.include_router(dashboard.router)
+app.include_router(cases.router)
+app.include_router(dictionaries.router)
+app.include_router(embeddings.router)
+app.include_router(events.router)
+app.include_router(rag.router)
+app.include_router(reports.router)
+app.include_router(settings_router.router)
+app.include_router(evaluation.router)

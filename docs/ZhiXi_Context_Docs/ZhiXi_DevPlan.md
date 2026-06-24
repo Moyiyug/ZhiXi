@@ -1,1199 +1,629 @@
 # ZhiXi_DevPlan.md
 
-> 文档版本：v0.3
-> 目标：把 PRD、前端、后端、技术、测试文档转化为可逐文件执行开发计划。
-> 原则：先闭环，后美化；先 Mock，后真实模型；先 P0，后 P1。
+> 文档版本：v0.4
+> 目标：把 PRD、Frontend、Backend、Tech、Test 转化为可执行开发计划。
+> 原则：先闭环后美化；先 Mock 后真实模型；先 P0 后 P1。
+> **本文不包含完整代码实现**，具体契约见 Backend/Frontend 文档。
 
 ---
 
 ## 1. 开发总路线
 
 ```text
-阶段 0：Git 初始化 + .gitignore
-阶段 1：后端 schemas + API 路由（health/dashboard/cases/dictionaries/embeddings）
-阶段 2：后端 services（case/csv_import/dictionary/embedding）
-阶段 3：后端 RAG 管线（profile → retrieve → rerank → evidence_pack → report）
+阶段 0：Git + .gitignore + 首次提交           ✅ 已完成
+阶段 1：后端 schemas + API 路由 + 注册        ✅ 已完成
+阶段 2：后端 services + utils + 脚本          ✅ 已完成（28 条案例已导入）
+阶段 3：RAG 管线集成验证                       ← 当前
 阶段 4：前端 AppShell + 视觉系统
 阶段 5：前端案例库 UI
 阶段 6：前端智能生成 UI
 阶段 7：前端报告页 UI
 阶段 8：前端设置页 + 评估页 + 工作台
-阶段 9：脚本 + 测试
+阶段 9：全面测试
 阶段 10：演示打磨
 ```
 
 ---
 
-## 2. 阶段 0：Git 初始化 + 根 .gitignore
+## 2. 阶段 0–2：已完成（基础架构）
 
-### 2.1 目标
-
-完成仓库初始化，保护敏感文件不被提交。
-
-### 2.2 文件清单
-
-| 文件 | 操作 | 说明 |
-|---|---|---|
-| `./.gitignore` | 创建 | 根级 ignore 规则 |
-| Git commit | 执行 | 首次提交 |
-
-### 2.3 `./.gitignore` 内容
-
-```gitignore
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-dist/
-.ruff_cache/
-.pytest_cache/
-.venv/
-
-# Node
-node_modules/
-.pnpm-store/
-
-# Environment
-.env
-.env.*
-!.env.example
-
-# Database
-data/*.db
-data/*.sqlite*
-
-# IDE
-.vscode/*
-!.vscode/extensions.json
-.idea/
-*.swp
-*.suo
-
-# OS
-.DS_Store
-Thumbs.db
-Desktop.ini
-
-# Build
-dist-ssr/
-*.local
-
-# Logs
-logs/
-*.log
-```
-
-### 2.4 验收
-
-- [ ] `git check-ignore .env` → `.env`
-- [ ] `git check-ignore node_modules` → `node_modules`
-- [ ] `git check-ignore __pycache__` → `__pycache__`
-- [ ] `git commit` → 初始提交成功，`git log --oneline` 显示 1 次 commit
-- [ ] `git status --porcelain` 为空
+阶段 0–2 产出：根 `.gitignore`、首次 git commit、7 个 Pydantic schema、9 个 API 路由、10 个 Service、3 个 Utils、2 个 CLI 脚本、Mock embedding + LLM 客户端、21 条字典数据、3 条 demo event、28 条案例从 CSV 导入。
 
 ---
 
-## 3. 阶段 1：后端 schemas + API 路由
+## 3. 阶段 3：RAG 管线集成验证
 
 ### 3.1 目标
 
-定义所有 Pydantic v2 schema，创建全部 API 路由骨架。本阶段不写业务逻辑（services 留到阶段 2/3），API 端点返回 mock 数据或占位响应。
-
-### 3.2 文件清单
-
-#### 3.2.1 Schemas（7 文件）
-
-**`backend/app/schemas/common.py`**
-
-```python
-from pydantic import BaseModel
-
-class PaginatedResponse(BaseModel):
-    items: list
-    total: int
-    page: int
-    page_size: int
-
-class ImportResult(BaseModel):
-    imported: int
-    skipped: int
-    errors: list[str]
-```
-
-**`backend/app/schemas/case.py`**
-
-```python
-from datetime import datetime
-from pydantic import BaseModel, Field
-
-class CaseCreate(BaseModel):
-    case_code: str | None = None
-    title: str = Field(..., min_length=1)
-    domain: str
-    public_demands: list[str] = Field(default_factory=list)
-    heat_level: int = Field(default=3, ge=1, le=5)
-    response_speed: str | None = None
-    effect_score: int | None = Field(default=None, ge=1, le=5)
-    strategy_types: list[str] = Field(default_factory=list)
-    event_description: str = ""
-    strategy_text: str = ""
-    vertical_subject: str | None = None
-    carrier_target: str | None = None
-    trigger_reason: str | None = None
-    risk_tags: list[str] = Field(default_factory=list)
-    notes: str | None = None
-
-class CaseUpdate(BaseModel):
-    title: str | None = None
-    domain: str | None = None
-    public_demands: list[str] | None = None
-    heat_level: int | None = Field(default=None, ge=1, le=5)
-    response_speed: str | None = None
-    effect_score: int | None = Field(default=None, ge=1, le=5)
-    strategy_types: list[str] | None = None
-    event_description: str | None = None
-    strategy_text: str | None = None
-    vertical_subject: str | None = None
-    carrier_target: str | None = None
-    trigger_reason: str | None = None
-    risk_tags: list[str] | None = None
-    notes: str | None = None
-
-class CaseResponse(BaseModel):
-    id: int
-    case_code: str | None
-    title: str
-    domain: str
-    public_demands: list[str]
-    heat_level: int
-    response_speed: str | None
-    effect_score: int | None
-    strategy_types: list[str]
-    event_description: str
-    strategy_text: str
-    vertical_subject: str | None
-    carrier_target: str | None
-    trigger_reason: str | None
-    risk_tags: list[str]
-    notes: str | None
-    enabled: bool
-    embedding_status: str
-    created_at: datetime
-    updated_at: datetime
-
-class CaseListResponse(PaginatedResponse):
-    items: list[CaseResponse]
-
-class CaseSummary(BaseModel):
-    id: int
-    title: str
-    domain: str
-    heat_level: int
-    effect_score: int | None
-    enabled: bool
-    embedding_status: str
-```
-
-**`backend/app/schemas/dictionary.py`**
-
-```python
-from pydantic import BaseModel
-
-class DictItemResponse(BaseModel):
-    key: str
-    label: str
-    meaning: str
-    report_hint: str
-    speech_hint: str
-    risk_hint: str
-    domain_relations: dict[str, float] | None = None
-
-class DictionaryResponse(BaseModel):
-    public_demands: list[DictItemResponse]
-    heat_levels: list[DictItemResponse]
-    strategy_types: list[DictItemResponse]
-    domain_labels: list[DictItemResponse]
-    domain_relations: list[DictItemResponse]
-```
-
-**`backend/app/schemas/event.py`**
-
-```python
-from pydantic import BaseModel, Field
-
-class ManualHints(BaseModel):
-    domain: str | None = None
-    heat_level: int | None = Field(default=None, ge=1, le=5)
-    public_demands: list[str] | None = None
-
-class ProfileRequest(BaseModel):
-    event_text: str = Field(..., min_length=50, max_length=800)
-    manual_hints: ManualHints | None = None
-
-class CurrentEventProfile(BaseModel):
-    event_summary: str
-    domain: str
-    public_demands: list[str]
-    heat_level: int = Field(ge=1, le=5)
-    risk_keywords: list[str]
-    platforms: list[str] = Field(default_factory=list)
-    inferred_strategy_direction: list[str] = Field(default_factory=list)
-    confidence: float = Field(ge=0.0, le=1.0)
-    profile_source: str  # 'llm' | 'rule' | 'manual' | 'mixed'
-```
-
-**`backend/app/schemas/rag.py`**
-
-```python
-from pydantic import BaseModel, Field
-
-class RetrieveRequest(BaseModel):
-    event_text: str = Field(..., min_length=50, max_length=800)
-    profile: CurrentEventProfile
-    top_k: int = Field(default=3, ge=1, le=10)
-
-class RetrievedCaseItem(BaseModel):
-    case_id: int
-    title: str
-    domain: str
-    event_description: str
-    strategy_text: str
-    semantic_score: float
-    demand_score: float
-    heat_score: float
-    domain_score: float
-    effect_score: float
-    final_score: float
-    explanation: str
-
-class RetrieveResponse(BaseModel):
-    query_text: str
-    results: list[RetrievedCaseItem]
-
-class EvidencePackResponse(BaseModel):
-    current_event: CurrentEventProfile
-    query_text: str
-    retrieved_cases: list[RetrievedCaseItem]
-    dictionary_hints: dict
-    limitations: list[str]
-```
-
-**`backend/app/schemas/report.py`**
-
-```python
-from datetime import datetime
-from pydantic import BaseModel, Field
-
-class ReportCreateRequest(BaseModel):
-    input_event_text: str
-    profile: CurrentEventProfile
-    evidence_pack: EvidencePackResponse
-    generate_now: bool = True
-
-class ReportSegmentResponse(BaseModel):
-    id: int
-    report_id: int
-    segment_key: str  # analysis_and_cases | strategy_and_speech | disclaimer
-    title: str
-    content_md: str
-    model_name: str | None
-    generation_status: str  # pending | generating | ready | failed
-    regenerated_count: int
-    created_at: datetime
-    updated_at: datetime
-
-class ReportResponse(BaseModel):
-    id: int
-    input_event_text: str
-    profile: CurrentEventProfile
-    evidence_pack: EvidencePackResponse
-    status: str
-    segments: list[ReportSegmentResponse]
-    created_at: datetime
-    updated_at: datetime
-```
-
-#### 3.2.2 API 路由（8 文件）
-
-**`backend/app/api/dashboard.py`**
-
-```python
-from fastapi import APIRouter, Depends
-from sqlmodel import Session, func
-from app.db.session import get_session
-from app.core.config import settings
-from app.models.case import Case
-from app.models.report import Report
-
-router = APIRouter(prefix="/api", tags=["dashboard"])
-
-@router.get("/dashboard/summary")
-def get_summary(session: Session = Depends(get_session)):
-    case_total = session.exec(func.count(Case.id)).one()
-    case_enabled = session.exec(func.count(Case.id)).where(Case.enabled == True).one()
-    embedding_ready = session.exec(func.count(Case.id)).where(Case.embedding_status == "ready").one()
-    report_total = session.exec(func.count(Report.id)).one()
-    return {
-        "case_total": case_total,
-        "case_enabled": case_enabled,
-        "embedding_ready": embedding_ready,
-        "report_total": report_total,
-        "mock_mode": settings.app_mock_mode,
-    }
-```
-
-**`backend/app/api/cases.py`**
-
-```python
-from fastapi import APIRouter, Depends, Query, UploadFile, File
-from sqlmodel import Session
-from app.db.session import get_session
-from app.schemas.case import CaseCreate, CaseUpdate, CaseResponse, CaseListResponse
-from app.schemas.common import ImportResult
-
-router = APIRouter(prefix="/api", tags=["cases"])
-
-@router.get("/cases")
-def list_cases(
-    q: str | None = Query(default=None),
-    domain: str | None = Query(default=None),
-    enabled: bool | None = Query(default=None),
-    embedding_status: str | None = Query(default=None),
-    page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
-    session: Session = Depends(get_session),
-) -> CaseListResponse: ...
-
-@router.post("/cases", status_code=201)
-def create_case(body: CaseCreate, session: Session = Depends(get_session)) -> CaseResponse: ...
-
-@router.get("/cases/{case_id}")
-def get_case(case_id: int, session: Session = Depends(get_session)) -> CaseResponse: ...
-
-@router.put("/cases/{case_id}")
-def update_case(case_id: int, body: CaseUpdate, session: Session = Depends(get_session)) -> CaseResponse: ...
-
-@router.delete("/cases/{case_id}", status_code=204)
-def delete_case(case_id: int, session: Session = Depends(get_session)) -> None: ...
-
-@router.post("/cases/import-csv")
-def import_csv(file: UploadFile = File(...), session: Session = Depends(get_session)) -> ImportResult: ...
-
-@router.post("/cases/{case_id}/toggle")
-def toggle_case(case_id: int, session: Session = Depends(get_session)) -> CaseResponse: ...
-```
-
-**`backend/app/api/dictionaries.py`**
-
-```python
-from fastapi import APIRouter, Depends
-from sqlmodel import Session
-from app.db.session import get_session
-from app.schemas.dictionary import DictionaryResponse
-
-router = APIRouter(prefix="/api", tags=["dictionaries"])
-
-@router.get("/dictionaries")
-def get_dictionaries(session: Session = Depends(get_session)) -> DictionaryResponse: ...
-```
-
-**`backend/app/api/embeddings.py`**
-
-```python
-from fastapi import APIRouter, Depends
-from sqlmodel import Session
-from app.db.session import get_session
-
-router = APIRouter(prefix="/api", tags=["embeddings"])
-
-@router.post("/cases/{case_id}/embedding")
-def generate_embedding(case_id: int, session: Session = Depends(get_session)) -> dict: ...
-
-@router.post("/cases/rebuild-embeddings")
-def rebuild_embeddings(session: Session = Depends(get_session)) -> dict: ...
-```
-
-**`backend/app/api/events.py`**
-
-```python
-from fastapi import APIRouter, Depends
-from sqlmodel import Session
-from app.db.session import get_session
-from app.schemas.event import ProfileRequest, CurrentEventProfile
-
-router = APIRouter(prefix="/api", tags=["events"])
-
-@router.post("/events/profile")
-def generate_profile(body: ProfileRequest, session: Session = Depends(get_session)) -> CurrentEventProfile: ...
-```
-
-**`backend/app/api/rag.py`**
-
-```python
-from fastapi import APIRouter, Depends
-from sqlmodel import Session
-from app.db.session import get_session
-from app.schemas.rag import RetrieveRequest, RetrieveResponse, EvidencePackResponse
-
-router = APIRouter(prefix="/api", tags=["rag"])
-
-@router.post("/rag/retrieve")
-def retrieve(body: RetrieveRequest, session: Session = Depends(get_session)) -> RetrieveResponse: ...
-
-@router.post("/rag/evidence-pack")
-def build_evidence_pack(body: RetrieveRequest, session: Session = Depends(get_session)) -> EvidencePackResponse: ...
-```
-
-**`backend/app/api/reports.py`**
-
-```python
-from fastapi import APIRouter, Depends
-from fastapi.responses import PlainTextResponse
-from sqlmodel import Session
-from app.db.session import get_session
-from app.schemas.report import ReportCreateRequest, ReportResponse
-
-router = APIRouter(prefix="/api", tags=["reports"])
-
-@router.post("/reports", status_code=201)
-def create_report(body: ReportCreateRequest, session: Session = Depends(get_session)) -> ReportResponse: ...
-
-@router.get("/reports/{report_id}")
-def get_report(report_id: int, session: Session = Depends(get_session)) -> ReportResponse: ...
-
-@router.post("/reports/{report_id}/segments/{segment_key}/regenerate")
-def regenerate_segment(report_id: int, segment_key: str, session: Session = Depends(get_session)) -> ReportResponse: ...
-
-@router.get("/reports/{report_id}/export.md")
-def export_report_md(report_id: int, session: Session = Depends(get_session)) -> PlainTextResponse: ...
-```
-
-**`backend/app/api/settings.py`**
-
-```python
-from fastapi import APIRouter
-from app.core.config import settings
-
-router = APIRouter(prefix="/api", tags=["settings"])
-
-@router.get("/settings/public")
-def get_public_settings() -> dict:
-    return {
-        "mock_mode": settings.app_mock_mode,
-        "embedding_model": settings.qwen_embedding_model,
-        "llm_model_fast": settings.deepseek_model_fast,
-        "llm_model_pro": settings.deepseek_model_pro,
-        "keys": {
-            "dashscope": "configured" if settings.dashscope_api_key else "missing",
-            "deepseek": "configured" if settings.deepseek_api_key else "missing",
-        },
-        "retrieval": {
-            "top_n": settings.retrieval_top_n,
-            "top_k": settings.retrieval_top_k,
-            "weights": {
-                "semantic": settings.weight_semantic,
-                "demand": settings.weight_demand,
-                "heat": settings.weight_heat,
-                "domain": settings.weight_domain,
-                "effect": settings.weight_effect,
-            },
-        },
-    }
-```
-
-**`backend/app/api/evaluation.py`**
-
-```python
-from fastapi import APIRouter, Depends
-from sqlmodel import Session
-from app.db.session import get_session
-
-router = APIRouter(prefix="/api", tags=["evaluation"])
-
-@router.post("/evaluation/run-demo")
-def run_demo_evaluation(demo_event_id: str | None = None, event_text: str | None = None, top_k: int = 3, session: Session = Depends(get_session)) -> dict: ...
-```
-
-### 3.3 main.py 注册所有路由
-
-```python
-# 在 app/main.py 中追加
-from app.api import dashboard, cases, dictionaries, embeddings, events, rag, reports, settings, evaluation
-
-app.include_router(dashboard.router)
-app.include_router(cases.router)
-app.include_router(dictionaries.router)
-app.include_router(embeddings.router)
-app.include_router(events.router)
-app.include_router(rag.router)
-app.include_router(reports.router)
-app.include_router(settings.router)
-app.include_router(evaluation.router)
-```
-
-### 3.4 验收
-
-- [ ] `/docs` Swagger 列出 14+ 端点（含所有标签）
-- [ ] `GET /api/settings/public` 返回 200 + key 状态不含真实密钥
-- [ ] `ruff check .` 通过
-- [ ] `uvicorn app.main:app` 启动无报错
+端到端验证：事件输入 → 画像 → query_text → 向量召回 → 加权重排 → Evidence Pack → 三段式报告。当前各 service 已独立存在但未串联端到端。
+
+### 3.2 任务
+
+1. **验证 `/api/events/profile`**：输入 `data/Sheet1.csv` 中的一条事件文本 → 返回 CurrentEventProfile（domain, demands, heat, confidence, risk_keywords）。Mock 模式使用关键词规则。
+2. **验证 `/api/rag/retrieve`**：使用 profile 调用检索 → 返回 Top-3，每条含 5 子分数 + final_score + explanation。验证停用案例不出现、Top-K 按 final_score 降序。
+3. **验证 `/api/rag/evidence-pack`**：返回完整 Evidence Pack（current_event + query_text + retrieved_cases + dictionary_hints + limitations）。
+4. **验证 `/api/reports`**：创建报告 → 3 个 segment 独立生成 → 每段 content_md 非空。
+5. **验证局部重生成**：`POST /api/reports/{id}/segments/strategy_and_speech/regenerate` → 仅该段变化。
+6. **验证 Markdown 导出**：`GET /api/reports/{id}/export.md` → 包含三个固定标题。
+
+### 3.3 验收
+
+- [ ] 输入 PRD 示例事件文本（高校食堂卫生问题）→ profile 返回 domain=思想政治教育类, heat≥3
+- [ ] retrieve 返回 results，每条有 6 个分数（5 子 + final）且 final=0.45*sem+0.20*dem+0.15*heat+0.10*dom+0.10*eff
+- [ ] 同域案例 domain_score=1.0，不同域查字典矩阵
+- [ ] evidence-pack 返回 3 条 limitations
+- [ ] 报告 3 段各自独立生成，Mock 输出不同内容
+- [ ] 重新生成第 2 段 → 第 1/3 段不变
+- [ ] Markdown 导出包含 `## 一、舆情画像与历史案例参考` `## 二、处置结论与回应话术` `## 三、免责声明与使用边界`
 
 ---
 
-## 4. 阶段 2：后端 services（案例 + 字典 + embedding + CSV 导入）
+## 4. 阶段 4：前端 AppShell + 视觉系统
 
 ### 4.1 目标
 
-实现数据层的业务逻辑。所有 services 可独立测试。
+建立前端架构骨架和统一视觉风格。页面可导航、有黑色舞台背景、有蓝图线稿元素。
 
-### 4.2 工具函数（3 文件）
+### 4.2 组件规格
 
-**`backend/app/utils/vectors.py`**
+#### `AppShell`
 
-```python
-import numpy as np
+| 维度 | 规格 |
+|---|---|
+| **Props** | `children: React.ReactNode` |
+| **职责** | 全局布局容器，包含 Sidebar + TopBar + `<main>` |
+| **状态** | 始终渲染（无 loading/error/empty） |
+| **交互** | 无直接交互，子组件各自处理 |
+| **布局** | `grid grid-cols-[240px_1fr]`，Sidebar 固定宽 |
 
-def cosine_similarity(a: list[float], b: list[float]) -> float:
-    """返回归一化到 [0, 1] 的余弦相似度"""
-    va = np.asarray(a, dtype=np.float32)
-    vb = np.asarray(b, dtype=np.float32)
-    denom = float(np.linalg.norm(va) * np.linalg.norm(vb))
-    if denom == 0:
-        return 0.0
-    raw = float(np.dot(va, vb) / denom)
-    return max(0.0, min(1.0, (raw + 1.0) / 2.0))
-```
+#### `Sidebar`
 
-**`backend/app/utils/normalize.py`**
+| 维度 | 规格 |
+|---|---|
+| **Props** | 无（从 React Router `useLocation` 获取当前路由） |
+| **职责** | 6 个导航项 + ZhiXi logo，当前路由高亮 |
+| **项** | 工作台(/)、案例素材库(/cases)、智能生成(/generate)、报告编辑(/reports/:id)、设置(/settings)、评估(/evaluation) |
+| **高亮** | `useLocation().pathname` 匹配 → `--zx-blue` 左边框 |
 
-```python
-import re
+#### `TopBar`
 
-def normalize_case_row(row: dict) -> dict:
-    """清洗单行 CSV 数据：nan→None, 空串→None, 提取热度数字"""
-    for k, v in row.items():
-        if isinstance(v, float) and pd.isna(v):
-            row[k] = None
-        elif v == "" or v == "nan":
-            row[k] = None
-    if row.get("heat_level_text"):
-        m = re.search(r'(\d+)', str(row["heat_level_text"]))
-        if m:
-            row["heat_level"] = int(m.group(1))
-    if row.get("effect_score_text"):
-        m = re.search(r'(\d+)', str(row["effect_score_text"]))
-        if m:
-            row["effect_score"] = int(m.group(1))
-    return row
+| 维度 | 规格 |
+|---|---|
+| **Props** | 无（从 `useQuery('settings')` 获取 mock 状态） |
+| **职责** | 右侧显示 Mock 模式指示灯（绿色圆点 + "Mock 模式" 文字或红色圆点 + "真实模型"） |
+| **数据** | `GET /api/settings/public` → `mock_mode` |
 
-def split_comma_field(value: str | None) -> list[str]:
-    """将逗号/顿号/斜杠分隔的文本拆分为数组"""
-    if not value:
-        return []
-    return [s.strip() for s in re.split(r'[,，、/]', value) if s.strip()]
+#### `StageBackground`
 
-def extract_domain_from_row(row: dict) -> str:
-    """根据第二层列是否有数据推断领域"""
-    layer2_prefixes = {
-        "文化传播类": "【第二层：文化传播类】",
-        "思想政治教育类": "【第二层：思想政治教育类】",
-        "政府管理类": "【第二层：政府管理类】",
-        "技术分析类": "【第二层：技术分析类】",
-    }
-    for domain, prefix in layer2_prefixes.items():
-        cols = [k for k in row if k.startswith(prefix) and row[k] is not None]
-        if cols:
-            return domain
-    return "其他"
-```
+| 维度 | 规格 |
+|---|---|
+| **Props** | 无 |
+| **职责** | 全屏黑色径向渐变背景 + 低透明度点阵噪声 |
+| **定位** | `fixed inset-0 -z-10` |
+| **颜色** | `--zx-bg` 渐变，点阵 opacity 0.06 |
 
-**`backend/app/utils/text_builders.py`**
+#### `BlueprintGrid`
 
-```python
-def build_case_embedding_text(case, dictionaries: dict) -> str:
-    """构造案例 embedding 文本，使用字典解释补充标签含义"""
-    demand_hints = []
-    for d in case.public_demands:
-        item = dictionaries["public_demands"].get(d)
-        if item:
-            demand_hints.append(f"{d}表示{item['meaning']}")
-    heat_item = dictionaries["heat_levels"].get(str(case.heat_level), {})
-    strategy_hints = []
-    for s in case.strategy_types:
-        item = dictionaries["strategy_types"].get(s)
-        if item:
-            strategy_hints.append(f"{s}表示{item['meaning']}")
-    return f"""案例名称：{case.title}
-所属领域：{case.domain}
-公众诉求：{'、'.join(case.public_demands)}。{'；'.join(demand_hints)}
-热度等级：{case.heat_level}。{heat_item.get('meaning', '')}
-策略类型：{'、'.join(case.strategy_types)}。{'；'.join(strategy_hints)}
-事件描述：{case.event_description}
-核心处置策略：{case.strategy_text}
-处置效果：{case.effect_score or '未知'}""".strip()
+| 维度 | 规格 |
+|---|---|
+| **Props** | `opacity?: number`（默认 0.12） |
+| **职责** | SVG `<pattern>` 网格 + 圆形坐标标注 + 蓝色细线 |
+| **定位** | `absolute inset-0 pointer-events-none` |
 
-def build_query_text(event_text: str, profile, dictionaries: dict) -> str:
-    """构造检索 query_text，与 case embedding 使用同一字典解释"""
-    demand_lines = []
-    for demand in profile.public_demands:
-        item = dictionaries["public_demands"].get(demand)
-        if item:
-            demand_lines.append(f"{demand}表示{item['meaning']}")
-    heat_item = dictionaries["heat_levels"].get(str(profile.heat_level), {})
-    return f"""当前事件：{event_text}
-事件摘要：{profile.event_summary}
-所属领域：{profile.domain}
-公众诉求：{'、'.join(profile.public_demands)}。{'；'.join(demand_lines)}
-热度等级：{profile.heat_level}，{heat_item.get('meaning', '')}
-风险关键词：{'、'.join(profile.risk_keywords)}
-检索目标：寻找相似历史案例及可借鉴处置策略。""".strip()
-```
+#### `ReportCanvas`
 
-### 4.3 Services（4 文件）
+| 维度 | 规格 |
+|---|---|
+| **Props** | `children: React.ReactNode` |
+| **职责** | 白灰画布容器，报告内容区域 |
+| **样式** | `bg-[--zx-canvas]` + 轻微蓝色外发光阴影 + 淡网格纹理 |
+| **圆角** | `rounded-sm` |
 
-**`backend/app/services/case_service.py`**
+### 4.3 其他基础设施文件
 
-```python
-import json
-from sqlmodel import Session, select, func
-from app.models.case import Case, CaseEmbedding
-from app.schemas.case import CaseCreate, CaseUpdate, CaseResponse
-from app.core.errors import NotFoundError
-
-class CaseService:
-    def __init__(self, session: Session):
-        self.session = session
-
-    def list_cases(self, q=None, domain=None, enabled=None, embedding_status=None, page=1, page_size=20):
-        stmt = select(Case)
-        if q: stmt = stmt.where(Case.title.contains(q))
-        if domain: stmt = stmt.where(Case.domain == domain)
-        if enabled is not None: stmt = stmt.where(Case.enabled == enabled)
-        if embedding_status: stmt = stmt.where(Case.embedding_status == embedding_status)
-        total = self.session.exec(select(func.count()).select_from(stmt.subquery())).one()
-        stmt = stmt.offset((page - 1) * page_size).limit(page_size)
-        items = self._to_responses(self.session.exec(stmt).all())
-        return {"items": items, "total": total, "page": page, "page_size": page_size}
-
-    def create(self, data: CaseCreate) -> CaseResponse:
-        case = Case(
-            case_code=data.case_code, title=data.title, domain=data.domain,
-            public_demands_json=json.dumps(data.public_demands),
-            heat_level=data.heat_level, response_speed=data.response_speed,
-            effect_score=data.effect_score,
-            strategy_types_json=json.dumps(data.strategy_types),
-            event_description=data.event_description,
-            strategy_text=data.strategy_text,
-            vertical_subject=data.vertical_subject,
-            carrier_target=data.carrier_target,
-            trigger_reason=data.trigger_reason,
-            risk_tags_json=json.dumps(data.risk_tags),
-            notes=data.notes, enabled=True, embedding_status="none",
-        )
-        self.session.add(case)
-        self.session.commit()
-        self.session.refresh(case)
-        return self._to_response(case)
-
-    def get(self, case_id: int) -> CaseResponse:
-        case = self.session.get(Case, case_id)
-        if not case: raise NotFoundError("Case not found", "CASE_NOT_FOUND")
-        return self._to_response(case)
-
-    def update(self, case_id: int, data: CaseUpdate) -> CaseResponse:
-        case = self.session.get(Case, case_id)
-        if not case: raise NotFoundError("Case not found", "CASE_NOT_FOUND")
-        update_data = data.model_dump(exclude_unset=True)
-        for k, v in update_data.items():
-            if k in ("public_demands", "strategy_types", "risk_tags"):
-                setattr(case, f"{k}_json", json.dumps(v or []))
-            elif hasattr(case, k):
-                setattr(case, k, v)
-        case.embedding_status = "none"  # 编辑后向量过期
-        self.session.add(case)
-        self.session.commit()
-        self.session.refresh(case)
-        return self._to_response(case)
-
-    def delete(self, case_id: int) -> None:
-        case = self.session.get(Case, case_id)
-        if not case: raise NotFoundError("Case not found", "CASE_NOT_FOUND")
-        # 级联删除关联 embedding
-        stmt = select(CaseEmbedding).where(CaseEmbedding.case_id == case_id)
-        for emb in self.session.exec(stmt).all():
-            self.session.delete(emb)
-        self.session.delete(case)
-        self.session.commit()
-
-    def toggle(self, case_id: int) -> CaseResponse:
-        case = self.session.get(Case, case_id)
-        if not case: raise NotFoundError("Case not found", "CASE_NOT_FOUND")
-        case.enabled = not case.enabled
-        self.session.add(case)
-        self.session.commit()
-        self.session.refresh(case)
-        return self._to_response(case)
-
-    def _to_response(self, case: Case) -> CaseResponse:
-        return CaseResponse(
-            id=case.id, case_code=case.case_code, title=case.title,
-            domain=case.domain, public_demands=json.loads(case.public_demands_json),
-            heat_level=case.heat_level, response_speed=case.response_speed,
-            effect_score=case.effect_score,
-            strategy_types=json.loads(case.strategy_types_json),
-            event_description=case.event_description,
-            strategy_text=case.strategy_text,
-            vertical_subject=case.vertical_subject,
-            carrier_target=case.carrier_target,
-            trigger_reason=case.trigger_reason,
-            risk_tags=json.loads(case.risk_tags_json),
-            notes=case.notes, enabled=case.enabled,
-            embedding_status=case.embedding_status,
-            created_at=case.created_at, updated_at=case.updated_at,
-        )
-
-    def _to_responses(self, cases: list[Case]) -> list[CaseResponse]:
-        return [self._to_response(c) for c in cases]
-```
-
-**`backend/app/services/csv_import_service.py`**
-
-关键逻辑：
-
-1. `pd.read_csv(file, header=None, skiprows=3)` 跳过前 3 行嵌套中文标题
-2. 手动映射列索引到 Case 字段（因为列名包含换行符）
-3. `df.drop(columns=[c for c in df.columns if 'Unnamed' in str(c)])` 删除空白列
-4. 对每行：`normalize_case_row()` → 提取 domain → 拆分逗号字段 → 创建 Case
-5. 返回 `ImportResult(imported=N, skipped=M, errors=[])`
-
-**`backend/app/services/dictionary_service.py`**
-
-```python
-from sqlmodel import Session, select
-from app.models.dictionary import BackgroundDictItem
-
-def get_dictionaries(session: Session) -> dict:
-    items = session.exec(select(BackgroundDictItem)).all()
-    result = {"public_demands": [], "heat_levels": [], "strategy_types": [], "domain_labels": [], "domain_relations": []}
-    for item in items:
-        d = {"key": item.key, "label": item.label, "meaning": item.meaning, "report_hint": item.report_hint, "speech_hint": item.speech_hint, "risk_hint": item.risk_hint}
-        if item.category == "domain_relations":
-            d["domain_relations"] = item.extra_json
-        if item.category in result:
-            result[item.category].append(d)
-    return result
-
-def get_domain_relations(session: Session) -> dict[str, dict[str, float]]:
-    items = session.exec(select(BackgroundDictItem).where(BackgroundDictItem.category == "domain_relations")).all()
-    return {item.key: item.extra_json or {} for item in items}
-```
-
-**`backend/app/services/embedding_service.py`**
-
-```python
-from app.core.config import settings
-from app.models.case import Case, CaseEmbedding
-from app.clients.mock_client import MockEmbeddingClient
-from app.utils.text_builders import build_case_embedding_text
-from app.services.dictionary_service import get_dictionaries
-
-def generate_embedding(case: Case, session) -> CaseEmbedding:
-    dicts = get_dictionaries(session)
-    text = build_case_embedding_text(case, dicts)
-    # Mock 模式
-    client = MockEmbeddingClient(dimensions=settings.qwen_embedding_dimensions)
-    vector = client.embed(text)
-    emb = CaseEmbedding(case_id=case.id, embedding_text=text, embedding_json=json.dumps(vector), model_name=client.model, dimensions=client.dimensions)
-    session.add(emb)
-    case.embedding_status = "ready"
-    session.add(case)
-    session.commit()
-    return emb
-```
+| 文件 | 职责 |
+|---|---|
+| `src/app/providers.tsx` | QueryClientProvider + TooltipProvider + BrowserRouter 嵌套 |
+| `src/app/router.tsx` | 6 条 Route 包裹在 AppShell 内 |
+| `src/styles/tokens.css` | 全部 CSS 自定义属性（--zx-bg, --zx-canvas, --zx-blue 等，见 Frontend.md §3.1） |
+| `src/styles/globals.css` | `@import "tailwindcss"` + body 基础样式 |
+| `src/lib/format.ts` | `formatPercent(n: number): string`（0.82 → "82%"）、`formatDate(iso: string): string`、`formatScoreLabel(n: number): string`（>0.8 → "高" 等） |
+| `src/lib/scores.ts` | `ScoreBreakdown` 类型 + `SCORE_LABELS` 常量（semantic→"语义相似度" 等） |
+| `src/lib/constants.ts` | `DOMAIN_OPTIONS`、`HEAT_OPTIONS`、`DEMAND_OPTIONS`、`STRATEGY_OPTIONS` |
+| `src/api/cases.ts` | `fetchCases(filters)`、`fetchCase(id)`、`createCase(data)`、`updateCase(id, data)`、`deleteCase(id)`、`importCsv(file)`、`toggleCase(id)` — 全部通过 `apiFetch` |
+| `src/api/rag.ts` | `generateProfile(eventText, hints?)`、`retrieveCases(eventText, profile, topK?)`、`buildEvidencePack(eventText, profile, topK?)` |
+| `src/api/reports.ts` | `createReport(data)`、`fetchReport(id)`、`regenerateSegment(id, key)`、`exportMarkdown(id)` |
+| `src/api/settings.ts` | `fetchPublicSettings()` |
 
 ### 4.4 验收
 
-- [ ] `POST /api/cases` 创建案例 → 返回 201 + CaseResponse
-- [ ] `GET /api/cases` 分页列表 → items/total/page/page_size
-- [ ] `PUT /api/cases/{id}` 编辑 → embedding_status 变为 "none"
-- [ ] `DELETE /api/cases/{id}` → 204，再次 GET 返回 404
-- [ ] `POST /api/cases/import-csv` 上传 `data/Sheet1.csv` → imported=9~10
-- [ ] 导入后 `cosine_similarity([1,0],[1,0])` = 1.0, `cosine_similarity([1,0],[0,1])` = 0.0
-- [ ] Embedding 文本包含领域、诉求解释、热度解释、策略解释
+- [ ] 6 条路由均可导航，URL 变化时 Sidebar 高亮正确
+- [ ] 黑色舞台背景 + 点阵纹理可见
+- [ ] 蓝图网格 SVG 存在但不遮挡文字
+- [ ] TopBar 显示 Mock 模式状态
+- [ ] `pnpm build` 通过
 
 ---
 
-## 5. 阶段 3：后端 RAG 管线（profile → retrieve → rerank → evidence_pack → report）
+## 5. 阶段 5：前端案例库 UI（/cases）
 
 ### 5.1 目标
 
-实现完整 RAG 检索 → Evidence Pack → 报告生成管线。
+完整 CRUD + CSV 导入 + embedding 管理的案例素材库页面。
 
-### 5.2 文件清单
+### 5.2 页面组件树
 
-#### 5.2.1 Prompts（1 文件）
-
-**`backend/app/prompts/report_segments.py`**
-
-三个 prompt 模板：
-
-- `ANALYSIS_AND_CASES_PROMPT` — 只基于 Evidence Pack，写入舆情画像 + 案例参考，≤800 字，禁止虚构传播数据
-- `STRATEGY_AND_SPEECH_PROMPT` — 给出建议 + 至少一段回应话术，不承诺未调查事实，避免官腔
-- `DISCLAIMER_PROMPT` — 80-180 字，明确小样本限制、模型生成、人工复核
-
-#### 5.2.2 Services（6 文件）
-
-**`backend/app/services/profile_service.py`**
-
-`generate_profile(event_text, manual_hints, session) -> CurrentEventProfile`:
-- Mock 模式：关键词匹配 → confidence = 0.75（启发式固定值）
-- 合并 manual_hints 覆盖自动字段
-- 返回 profile_source = "mixed" | "rule" | "manual"
-
-**`backend/app/services/retrieval_service.py`**
-
-`retrieve(query_text, profile, top_n, top_k, session) -> list[RetrievedCaseItem]`:
-1. 查询全部 `enabled=true AND embedding_status=ready` 案例+嵌入
-2. 计算 query vector（MockEmbeddingClient.embed）
-3. 逐个 cosine_similarity → 排序取 Top-N
-4. 传入 RerankService.rerank() → 返回 Top-K
-
-**`backend/app/services/rerank_service.py`**
-
-```python
-def demand_score(query_demands, case_demands) -> float:
-    """Jaccard 相似度，一方空返回 0.5"""
-def heat_score(query_heat, case_heat) -> float:
-    """1 - abs(diff)/4，归一化到 [0,1]"""
-def domain_score(query_domain, case_domain, relations) -> float:
-    """同域 1.0，查字典矩阵取值，未定义 0.0"""
-def effect_score(effect) -> float:
-    """effect/5，缺失返回 0.6"""
-
-def final_score(scores, weights) -> float:
-    return 0.45*s + 0.20*d + 0.15*h + 0.10*dom + 0.10*e
-
-def rerank(candidates, query, weights, domain_relations) -> list[RetrievedCaseItem]:
-    """按 final_score 降序排列，返回 top_k 条"""
+```text
+CaseLibraryPage
+  ├── CaseToolbar
+  │     ├── [新增案例] Button → 打开 CaseFormDialog (mode="create")
+  │     ├── [导入 CSV] Button → <input type="file" accept=".csv">
+  │     └── [批量重建 Embedding] Button
+  ├── CaseFilterRail
+  │     ├── 搜索框 (Input, 案例名称)
+  │     ├── 领域 Select (全部 / 四大领域)
+  │     ├── 启用状态 Select (全部 / 已启用 / 已停用)
+  │     └── 向量状态 Select (全部 / none / pending / ready / failed)
+  └── CaseCardGrid
+        └── CaseCard[] (每个一张卡片)
 ```
 
-**`backend/app/services/evidence_pack_service.py`**
+### 5.3 组件规格
 
-`build_evidence_pack(event_text, profile, retrieved, dicts, session) -> EvidencePackResponse`
+#### `CaseLibraryPage`
 
-**`backend/app/services/report_generation_service.py`**
+| 维度 | 规格 |
+|---|---|
+| **数据** | `useCases(filters)` → `{items, total, page, page_size}` |
+| **状态** | loading: 12 个 Skeleton 卡片；empty: "暂无案例素材，导入 CSV 或新增案例"；error: toast + 重试按钮 |
+| **分页** | 底部分页器（page/page_size） |
 
-```python
-def create_report(input_event_text, profile, evidence_pack, session) -> Report:
-    """创建 Report + 3 个 ReportSegment（status=pending）"""
+#### `CaseCard`
 
-def generate_segment(report_id, segment_key, evidence_pack, session):
-    """Mock → 用 MockLLMClient.chat() 生成对应段落"""
+| 维度 | 规格 |
+|---|---|
+| **Props** | `case: CaseResponse`, `onClick: () => void`, `onToggle: () => void` |
+| **展示** | 标题、领域 Badge（颜色按领域）、热度等级 Badge（1-5 数字）、向量状态 Badge（ready=绿/none=灰/failed=红）、公众诉求 Chips（最多 3 个）、处置效果 RatingDots（●○○○○） |
+| **交互** | 点击卡片 → 打开 `CaseDetailDrawer`；Switch 切换启用/停用 |
+| **状态** | 停用卡片整体 opacity 降低 + 遮罩条纹 |
 
-def regenerate_segment(report_id, segment_key, session):
-    """重新生成指定段落，regenerated_count+1"""
+#### `CaseDetailDrawer`
 
-def export_markdown(report, session) -> str:
-    """拼接 3 段为 Markdown"""
-```
+| 维度 | 规格 |
+|---|---|
+| **Props** | `caseId: number`, `open: boolean`, `onClose: () => void` |
+| **展示** | Sheet 从右侧滑入：事件核心描述、核心处置策略、所有标签 + 悬浮解释（字典释义）、Embedding 文本预览（`<pre>` 等宽字体）、是否参与检索（enabled + embedding_status 联合判断） |
+| **操作** | [编辑] → 打开 CaseFormDialog(mode="edit")；[重新生成 Embedding] |
+| **状态** | loading: Skeleton；error: 抽屉内 error panel |
 
-#### 5.2.3 连线 API 路由
+#### `CaseFormDialog`
 
-所有路由函数从占位改为调用真实 services。
+| 维度 | 规格 |
+|---|---|
+| **Props** | `mode: 'create' | 'edit'`, `case?: CaseResponse`, `open: boolean`, `onClose: () => void` |
+| **表单** | React Hook Form + Zod schema（见 `case.schema.ts`）：title 必填、domain 枚举必选、public_demands 多选 Chips、heat_level 1-5 SegmentedControl、effect_score 1-5 RatingDots、strategy_types 多选 Chips、event_description textarea（50-300 字建议）、strategy_text textarea（30-200 字建议） |
+| **验证** | title 非空、domain 非空、至少选 1 个 public_demand |
+| **状态** | 提交中按钮 disabled + loading spinner；校验失败字段下方红色提示 |
+| **交互** | 关闭时如有未保存修改 → 二次确认弹窗 |
 
-### 5.3 验收
+#### `EmbeddingPreview`
 
-- [ ] 输入事件 → `POST /api/events/profile` → 返回 profile（domain/demands/heat/confidence）
-- [ ] `POST /api/rag/retrieve` → 返回 query_text + results（每条含 5 个子分数 + final_score + explanation）
-- [ ] `POST /api/rag/evidence-pack` → 返回完整 Evidence Pack（含 limitations）
-- [ ] `POST /api/reports` → 创建 report（3 个 segment）
-- [ ] 每个 segment 单独生成（mock 输出不同内容）
-- [ ] `POST /api/reports/{id}/segments/{key}/regenerate` → 仅该段变化
-- [ ] `GET /api/reports/{id}/export.md` → 包含三个固定标题
-- [ ] final_score 降序排列
-- [ ] 停用案例不在检索结果中
-- [ ] DomainScore 同域=1.0，不同域=查矩阵，未定义=0.0
+| 维度 | 规格 |
+|---|---|
+| **Props** | `embedding: { text: string, model: string, dimensions: number } | null` |
+| **展示** | 等宽字体展示 embedding_text 全文，下方显示 model + dimensions |
+| **状态** | null → "尚未生成向量"；ready → 文本展示 + 向量维度信息 |
+
+### 5.4 验收
+
+- [ ] 卡片网格展示所有案例（当前 28 条）
+- [ ] 领域筛选 → 卡片数量变化
+- [ ] 搜索案例名称 → 模糊匹配
+- [ ] 新增案例弹窗：所有必填字段可填写、校验生效
+- [ ] 编辑案例后 embedding_status 变为 "none"
+- [ ] 删除案例 → 二次确认 → 卡片消失
+- [ ] 启用/停用 Switch → 即时生效
+- [ ] CSV 导入 → 文件选择 → toast "导入 N 条"
+- [ ] 重新生成 Embedding → 状态变为 "ready"
+- [ ] 抽屉内 EmbeddingPreview 展示向量文本
+- [ ] 空状态（无案例时）有引导操作
+- [ ] loading 状态有 Skeleton 卡片
+- [ ] error 状态有 toast + 重试
 
 ---
 
-## 6. 阶段 4：前端 AppShell + 视觉系统
+## 6. 阶段 6：前端智能生成 UI（/generate）
 
 ### 6.1 目标
 
-建立前端架构骨架和统一视觉风格。
+完成主演示流程：输入事件 → 画像 → 检索 → 报告生成 → 跳转。
 
-### 6.2 文件清单
-
-| 文件 | 操作 | 关键内容 |
-|---|---|---|
-| `frontend/src/styles/tokens.css` | 创建 | CSS variables（--zx-bg, --zx-canvas, --zx-blue 等 19 个 token） |
-| `frontend/src/styles/globals.css` | 修改 | `@import "tailwindcss"` + body 全局样式 |
-| `frontend/src/app/providers.tsx` | 创建 | QueryClientProvider + TooltipProvider + BrowserRouter |
-| `frontend/src/app/router.tsx` | 创建 | 6 条路由嵌套在 AppShell 内 |
-| `frontend/src/components/shell/AppShell.tsx` | 创建 | Sidebar + TopBar + `<main><Outlet/></main>` |
-| `frontend/src/components/shell/Sidebar.tsx` | 创建 | 6 个导航项 + ZhiXi logo |
-| `frontend/src/components/shell/TopBar.tsx` | 创建 | Mock 模式指示灯 + API 状态 |
-| `frontend/src/components/zhi/StageBackground.tsx` | 创建 | 黑色径向渐变 + 点阵噪声 |
-| `frontend/src/components/zhi/BlueprintGrid.tsx` | 创建 | SVG `<pattern>` 点阵 + 坐标标注 |
-| `frontend/src/components/zhi/ReportCanvas.tsx` | 创建 | 白灰画布容器 + 淡网格 |
-| `frontend/src/lib/format.ts` | 创建 | formatPercent(n), formatDate(iso), formatScoreLabel(n) |
-| `frontend/src/lib/scores.ts` | 创建 | ScoreBreakdown 类型, SCORE_LABELS 常量 |
-| `frontend/src/lib/constants.ts` | 创建 | DOMAIN_OPTIONS, HEAT_OPTIONS, DEMAND_OPTIONS, STRATEGY_OPTIONS |
-| `frontend/src/api/cases.ts` | 创建 | fetchCases, fetchCase, createCase, updateCase, deleteCase, importCsv, toggleCase |
-| `frontend/src/api/rag.ts` | 创建 | generateProfile, retrieveCases, buildEvidencePack |
-| `frontend/src/api/reports.ts` | 创建 | createReport, fetchReport, regenerateSegment, exportMarkdown |
-| `frontend/src/api/settings.ts` | 创建 | fetchPublicSettings |
-| `frontend/src/App.tsx` | 修改 | 替换为 `<Providers />` |
-
-### 6.3 验收
-
-- [ ] 路由完整：`/`, `/cases`, `/generate`, `/reports/:id`, `/settings`, `/evaluation`
-- [ ] 黑色舞台背景可见
-- [ ] 侧边栏导航可点击跳转
-- [ ] 蓝图线稿元素存在但不遮挡内容
-- [ ] `pnpm build` 通过
-- [ ] 所有 API 函数走 `src/api/client.ts`
-
----
-
-## 7. 阶段 5：前端案例库 UI（/cases）
-
-### 7.1 文件清单
-
-| 文件 | 操作 | 关键内容 |
-|---|---|---|
-| `frontend/src/pages/CaseLibraryPage.tsx` | 创建 | 完整页面：FilterRail + 工具栏 + 卡片网格 |
-| `frontend/src/components/cases/CaseCard.tsx` | 创建 | 卡片：标题、领域 Badge、热度 Badge、向量状态 Badge、公众诉求 Chips、启用 Switch |
-| `frontend/src/components/cases/CaseDetailDrawer.tsx` | 创建 | Sheet/Drawer：事件描述、策略、标签解释、embedding 文本预览 |
-| `frontend/src/components/cases/CaseFormDialog.tsx` | 创建 | Dialog：React Hook Form + Zod schema，新增/编辑二合一 |
-| `frontend/src/components/cases/EmbeddingPreview.tsx` | 创建 | 小面板：展示 embedding text |
-| `frontend/src/hooks/useCases.ts` | 创建 | TanStack Query hooks：useCases, useCase, useCreateCase, useUpdateCase, useDeleteCase, useImportCsv, useToggleCase |
-| `frontend/src/schemas/case.schema.ts` | 创建 | Zod schema：title 必填、domain 枚举、heat_level 1-5 等 |
-
-### 7.2 验收
-
-- [ ] 卡片网格展示案例
-- [ ] 按领域/状态/向量状态筛选
-- [ ] 新增案例弹窗
-- [ ] 编辑案例弹窗（编辑后 embedding 状态重置）
-- [ ] 删除二次确认
-- [ ] 启用/停用开关
-- [ ] CSV 导入按钮（上传文件 + toast 结果）
-- [ ] 重新生成 embedding 按钮
-- [ ] 空状态：提示导入 CSV 或新增案例
-- [ ] loading/error/empty/success 四个状态覆盖
-
----
-
-## 8. 阶段 6：前端智能生成 UI（/generate）
-
-### 8.1 文件清单
-
-| 文件 | 操作 | 关键内容 |
-|---|---|---|
-| `frontend/src/pages/GeneratePage.tsx` | 创建 | 双层布局：左输入/右结果 |
-| `frontend/src/components/generate/EventInputPanel.tsx` | 创建 | 输入框 + 3 个示例按钮 + 字数统计（50-800） |
-| `frontend/src/components/generate/ProfileEditor.tsx` | 创建 | 画像卡片：可编辑 domain/heat/demands/risk_keywords |
-| `frontend/src/components/generate/RetrievedCaseCard.tsx` | 创建 | 检索结果卡片：final_score + 拆解分数 + 推荐理由 + 策略摘要 |
-| `frontend/src/components/generate/SimilarityBreakdown.tsx` | 创建 | 5 个子分数条：语义/诉求/热度/领域/效果，百分比展示 |
-| `frontend/src/components/generate/EvidencePackDrawer.tsx` | 创建 | Drawer：展示 Evidence Pack 内容 + limitations |
-| `frontend/src/components/generate/RetrievalTimeline.tsx` | 创建 | SVG 扫描动效（检索中动画） |
-| `frontend/src/hooks/useGenerateProfile.ts` | 创建 | useMutation → POST /api/events/profile |
-| `frontend/src/hooks/useRetrieve.ts` | 创建 | useMutation → POST /api/rag/retrieve |
-| `frontend/src/schemas/event.schema.ts` | 创建 | Zod: event_text min(50) max(800) |
-
-### 8.2 交互状态机
+### 6.2 页面组件树
 
 ```text
-初始 → 输入事件文本 → [生成事件画像]
-  → loading（扫描线动画）
-  → 画像展示 → 用户可选编辑画像字段
-  → [检索参考案例]
-  → loading（RetrievalTimeline 动效）
-  → Top-K 卡片展示
-  → [生成三段式报告]
-  → 跳转到 /reports/:id
+GeneratePage
+  ├── EventInputPanel
+  │     ├── Textarea (50-800 字，带字数统计)
+  │     ├── ExamplePromptBar (3 个示例按钮：高校食堂/景区NPC/政务通报)
+  │     └── [生成事件画像] Button → POST /api/events/profile
+  ├── ProfileEditor
+  │     ├── 事件摘要 (只读)
+  │     ├── 所属领域 (Select 可编辑)
+  │     ├── 公众诉求 (Chips 可编辑多选)
+  │     ├── 热度等级 (SegmentedControl 1-5)
+  │     ├── 风险关键词 (Tags 可编辑)
+  │     ├── 置信度 (只读进度条)
+  │     └── [检索参考案例] Button → POST /api/rag/retrieve
+  ├── RetrievalTimeline (检索中扫描线动效，600ms)
+  ├── RetrievedCaseCard[] (Top-K 卡片，默认 3 张)
+  │     └── SimilarityBreakdown (每个卡片内的 5 子分数)
+  ├── EvidencePackDrawer (查看完整 Evidence Pack)
+  └── [生成三段式报告] Button → POST /api/reports → navigate(/reports/:id)
 ```
 
-### 8.3 验收
+### 6.3 组件规格
 
-- [ ] 输入事件后点击"生成事件画像" → profile 展示
-- [ ] 画像字段可编辑（domain/heat/demands/keywords）
-- [ ] 编辑后检索使用修正后的画像
-- [ ] 检索结果卡片展示 final_score + 5 子分数 + explanation
-- [ ] 相似度拆解用百分比或条形图
-- [ ] 无明显分数时显示 "—"（fallback）
-- [ ] Evidence Pack 抽屉可查看
-- [ ] 生成报告按钮在无检索结果时 disabled
-- [ ] 生成中跳转到 `/reports/:id`
+#### `EventInputPanel`
+
+| 维度 | 规格 |
+|---|---|
+| **Props** | `value: string`, `onChange: (v: string) => void`, `onSubmit: () => void`, `isLoading: boolean` |
+| **验证** | 50-800 字符，实时字数统计 `{current}/800`（<50 时红色） |
+| **示例** | 3 个预设示例按钮，点击自动填入 textarea |
+| **按钮** | [生成事件画像] 在 `isLoading` 或字数不达标时 disabled |
+
+#### `ProfileEditor`
+
+| 维度 | 规格 |
+|---|---|
+| **Props** | `profile: CurrentEventProfile | null`, `onUpdate: (patch: Partial<CurrentEventProfile>) => void`, `onRetrieve: () => void`, `isRetrieving: boolean` |
+| **可编辑字段** | domain（Select）、heat_level（SegmentedControl）、public_demands（Chips 多选）、risk_keywords（Input + Tag 增减） |
+| **只读字段** | event_summary、confidence（进度条 + 百分比）、profile_source |
+| **状态** | profile=null → "尚未生成画像" 占位；任何字段修改后 → patch 保存到本地 state |
+
+#### `RetrievedCaseCard`
+
+| 维度 | 规格 |
+|---|---|
+| **Props** | `result: RetrievedCaseItem` |
+| **展示** | 案例名称、领域 Badge、final_score（大号等宽字体 + 百分比）、匹配等级标签（高/中/低，>0.8 绿色、0.5-0.8 黄色、<0.5 灰色）、explanation 文本、核心策略摘要（最多 3 行折叠） |
+| **子组件** | 内嵌 `SimilarityBreakdown` |
+| **交互** | 展开/折叠查看完整策略文本 |
+
+#### `SimilarityBreakdown`
+
+| 维度 | 规格 |
+|---|---|
+| **Props** | `scores: { semantic, demand, heat, domain, effect }`，`final: number` |
+| **展示** | 5 条子分数横向或纵向条形图：标签（中文） + 百分比 + 进度条（`--zx-blue` 填充），按权重降序排列（语义>诉求>热度>领域>效果） |
+| **状态** | 任一分数缺失 → 显示 "—" |
+
+#### `EvidencePackDrawer`
+
+| 维度 | 规格 |
+|---|---|
+| **Props** | `evidencePack: EvidencePackResponse | null`, `open: boolean`, `onClose: () => void` |
+| **展示** | query_text 全文、Top-K 案例摘要、dictionary_hints 摘要、limitations 列表（红色文字强调） |
+| **交互** | 从右侧滑入 Sheet |
+
+### 6.4 页面状态机
+
+```text
+初始 (event_text="")
+  → 输入文本 → [生成事件画像] 可用
+  → 点击 [生成事件画像] → profileLoading=true → 画像区 Skeleton
+  → profile ready → ProfileEditor 展示 + [检索参考案例] 可用
+  → 用户可选编辑画像字段（修改后 patch 保存）
+  → 点击 [检索参考案例] → retrieveLoading=true → RetrievalTimeline 动效
+  → results ready → Top-K 卡片 + SimilarityBreakdown
+  → [生成三段式报告] 可用（无 results 时 disabled）
+  → 点击 → navigate(`/reports/${reportId}`)
+```
+
+### 6.5 验收
+
+- [ ] 输入 PRD 示例文本 "高校食堂卫生问题……" → 生成画像 → domain=思想政治教育类
+- [ ] 画像字段可编辑：修改 domain → 检索结果相应变化
+- [ ] 检索结果 3 张卡片，每张含 5 子分数 + final_score
+- [ ] SimilarityBreakdown 分数以百分比展示
+- [ ] 证据抽屉可查看完整 Evidence Pack
+- [ ] [生成三段式报告] 按钮 → 跳转到 `/reports/:id`
+- [ ] 无检索结果时 [生成报告] 按钮 disabled
+- [ ] 字数统计实时更新，<50 时红色警告
+- [ ] loading 状态有 RetrievalTimeline 扫描动效
 
 ---
 
-## 9. 阶段 7：前端报告页 UI（/reports/:id）
+## 7. 阶段 7：前端报告页 UI（/reports/:id）
 
-### 9.1 文件清单
+### 7.1 目标
 
-| 文件 | 操作 | 关键内容 |
-|---|---|---|
-| `frontend/src/pages/ReportPage.tsx` | 创建 | 双栏：左 ReportCanvas + 右 EvidenceInspector |
-| `frontend/src/components/reports/ReportSegmentCard.tsx` | 创建 | 段落卡片：生成状态指示器 + Markdown 渲染 + 操作按钮 |
-| `frontend/src/components/reports/SegmentActionBar.tsx` | 创建 | 按钮组：重新生成/复制/查看依据 |
-| `frontend/src/components/reports/EvidenceInspector.tsx` | 创建 | 侧面板：Evidence Pack 摘要 |
-| `frontend/src/components/reports/ExportReportButton.tsx` | 创建 | 导出 Markdown 按钮 |
-| `frontend/src/hooks/useReport.ts` | 创建 | useReport, useRegenerateSegment, useExportMarkdown |
+三段式报告展示、局部重生成、复制、导出、Evidence 查看。
 
-### 9.2 验收
+### 7.2 页面组件树
 
-- [ ] 报告固定三段
-- [ ] 每段可单独重新生成（loading → success toast）
-- [ ] 每段可复制
-- [ ] 每段可查看依据（Evidence Pack 抽屉）
-- [ ] 报告不支持手动编辑文字
-- [ ] 导出 Markdown 按钮可用
-- [ ] 右侧 Evidence Inspector 展示匹配案例
-- [ ] 三段全部使用 Evidence Pack 作为依据
+```text
+ReportPage
+  ├── ReportCanvas (白灰画布)
+  │     ├── ReportSegmentCard (一、舆情画像与历史案例参考)
+  │     │     └── SegmentActionBar
+  │     ├── ReportSegmentCard (二、处置结论与回应话术)
+  │     │     └── SegmentActionBar
+  │     ├── ReportSegmentCard (三、免责声明与使用边界)
+  │     │     └── SegmentActionBar
+  │     └── ExportReportButton → GET /api/reports/{id}/export.md
+  └── EvidenceInspector (右侧栏)
+        └── Evidence Pack 摘要
+```
+
+### 7.3 组件规格
+
+#### `ReportPage`
+
+| 维度 | 规格 |
+|---|---|
+| **数据** | `useReport(id)` → `ReportResponse` |
+| **状态** | loading: 3 个 Skeleton 段落卡片；error: "报告加载失败" + 重试；empty: 404 跳转到 /generate |
+| **布局** | `grid grid-cols-[1fr_320px]`：左 ReportCanvas + 右 EvidenceInspector |
+
+#### `ReportSegmentCard`
+
+| 维度 | 规格 |
+|---|---|
+| **Props** | `segment: ReportSegmentResponse`, `onRegenerate: () => void` |
+| **展示** | 标题（h2）、Markdown 内容（用 `react-markdown` 或 `dangerouslySetInnerHTML` 渲染）、model_name 脚注 |
+| **状态** | pending: "等待生成…" + Skeleton；generating: Spinner + "生成中…"；ready: 完整 Markdown 渲染；failed: 红色 "生成失败" + [重试] 按钮 |
+| **交互** | 不提供文本编辑框（不支持手动编辑） |
+
+#### `SegmentActionBar`
+
+| 维度 | 规格 |
+|---|---|
+| **Props** | `segmentKey: string`, `onRegenerate: () => void`, `onCopy: () => void`, `onViewEvidence: () => void` |
+| **按钮** | [重新生成]（loading 时 disabled）、[复制本段]（复制后 toast "已复制"）、[查看依据]（打开 EvidencePackDrawer） |
+
+#### `EvidenceInspector`
+
+| 维度 | 规格 |
+|---|---|
+| **Props** | `evidencePack: EvidencePackResponse` |
+| **展示** | 当前事件摘要、Top-K 案例列表（名称 + final_score）、limitations 红色警示 |
+
+#### `ExportReportButton`
+
+| 维度 | 规格 |
+|---|---|
+| **Props** | `reportId: number` |
+| **行为** | 点击 → `GET /api/reports/{id}/export.md` → 触发浏览器下载 `.md` 文件 |
+
+### 7.4 验收
+
+- [ ] 报告页面展示 3 个段落卡片
+- [ ] 每段可独立重新生成 → loading → 内容更新
+- [ ] 重新生成第 2 段 → 第 1/3 段不变
+- [ ] 每段可复制（toast 确认）
+- [ ] 每段可查看依据（EvidencePackDrawer）
+- [ ] 导出 Markdown 按钮 → 文件下载
+- [ ] 右侧 EvidenceInspector 展示匹配案例
+- [ ] 报告不支持手动文本编辑（无 textarea/input）
+- [ ] pending/generating/ready/failed 四种状态均正确展示
 
 ---
 
-## 10. 阶段 8：前端设置页 + 评估页 + 工作台
+## 8. 阶段 8：前端设置页 + 评估页 + 工作台
 
-### 10.1 文件清单
+### 8.1 DashboardPage（/）
 
-| 文件 | 操作 | 关键内容 |
-|---|---|---|
-| `frontend/src/pages/DashboardPage.tsx` | 创建 | HeroStage + 4 MetricCards + PipelineBlueprint SVG + LimitNotice |
-| `frontend/src/pages/SettingsPage.tsx` | 创建 | Mock 模式状态、模型名（只读）、Key 状态指示灯、权重表、字典查看 |
-| `frontend/src/pages/EvaluationPage.tsx` | 创建 | DemoEventRail（3 按钮）+ EvaluationResultPanel + ManualScoreForm |
+| 维度 | 规格 |
+|---|---|
+| **数据** | `useQuery('dashboard-summary', () => apiFetch('/api/dashboard/summary'))` |
+| **状态** | loading: 4 个 Skeleton MetricCards；error: error panel + 重试 |
+| **组件** | `HeroStage`（标题 + CTA 按钮）、`MetricCards`（案例总数/可检索/已向量化/报告数）、`PipelineBlueprint`（SVG 流程图：6 节点 + 连线）、`LimitNotice`（小样本限制提示） |
 
-### 10.2 验收
+### 8.2 SettingsPage（/settings）
 
-- [ ] 工作台展示案例总数/可检索/已向量化/报告数
-- [ ] 工作台展示 RAG 流程图（SVG）
-- [ ] 设置页不显示真实 API Key
-- [ ] 设置页显示检索权重表格
-- [ ] 设置页字典可展开查看
-- [ ] 评估页可运行 3 个测试事件
+| 维度 | 规格 |
+|---|---|
+| **数据** | `useQuery('settings', fetchPublicSettings)` |
+| **状态** | loading: Skeleton 卡片；error: toast |
+| **布局** | 左列：Mock 模式 Badge + 模型名（只读）+ API Key 状态指示灯（绿圆/红圆 + "已配置"/"未配置"）；右列：检索权重表（6 行 × 3 列）+ 字典 Accordion（按类别折叠展开） |
+| **禁止** | 绝不显示真实 Key 值 |
+
+### 8.3 EvaluationPage（/evaluation）
+
+| 维度 | 规格 |
+|---|---|
+| **数据** | 左列 DemoEventRail → 3 个预设事件按钮（golden_event_1/2/3）；点击 → `POST /api/evaluation/run-demo` |
+| **状态** | 初始："选择测试事件"；running: Spinner + "评估中…"；结果：profile 摘要 + Top-K 案例卡片 + metrics（average_final_score, has_same_domain_hit）+ ManualScoreForm（4 个 1-5 Slider：相关性/可操作性/风险控制/表达质量） |
+| **提示** | 页面底部 "仅为课程原型验证" |
+
+### 8.4 验收
+
+- [ ] 工作台展示实时案例/报告数量
+- [ ] 工作台 SVG 流程图可展示 RAG 链路
+- [ ] 设置页 Key 状态正确（Mock 模式均为 "未配置"）
+- [ ] 设置页权重表与 `GET /api/settings/public` 一致
+- [ ] 设置页字典可逐类别展开
+- [ ] 评估页 3 个测试事件可选择运行
 - [ ] 评估页展示 Top-K 和指标
-- [ ] 所有页面覆盖 loading/error/empty/success
+- [ ] 评估页可录入人工评分
 
 ---
 
-## 11. 阶段 9：脚本
+## 9. 阶段 9：全面测试
 
-### 11.1 文件清单
+### 9.1 测试总原则
 
-| 文件 | 操作 | 说明 |
+- 每个 API 端点：**≥1 成功用例 + ≥2 异常用例**（404+422 或 400+500）
+- 每个前端组件：**覆盖五态**（loading / error / empty / success / disabled）
+- RAG 管线：**正确性验证**（公式、数据源、Prompt 安全）
+- E2E：**完整演示路径**（PRD §10.1 的 10 步）
+
+### 9.2 后端 API 测试矩阵
+
+| API 端点 | 成功用例 | 异常用例 |
 |---|---|---|
-| `backend/scripts/import_csv.py` | 创建 | CLI：`python scripts/import_csv.py <path>` → 调 CsvImportService → 打印 summary |
-| `backend/scripts/rebuild_embeddings.py` | 创建 | CLI：`python scripts/rebuild_embeddings.py` → 遍历 non-ready cases → 生成 embedding |
+| `GET /api/health` | 返回 `{status:"ok", mock_mode, database}` | — |
+| `GET /api/dashboard/summary` | 返回 5 个字段，类型正确 | 无数据时各字段为 0 |
+| `GET /api/cases` | 分页列表 + 筛选 domain/enabled/embedding_status | page=0 → 422，page_size=999 → 422 |
+| `POST /api/cases` | 创建成功 201 | title 空 → 422，domain 非法枚举 → 422，heat_level=0 → 422 |
+| `GET /api/cases/{id}` | 返回案例 | id=99999 → 404 `CASE_NOT_FOUND` |
+| `PUT /api/cases/{id}` | 更新 + embedding_status→"none" | id=99999 → 404，非法 heat_level → 422 |
+| `DELETE /api/cases/{id}` | 204 + 级联删除 embedding | id=99999 → 404 |
+| `POST /api/cases/import-csv` | 导入成功 → imported>0 | 空文件 → skipped，非 CSV → 500 |
+| `POST /api/cases/{id}/toggle` | 切换 enabled | id=99999 → 404 |
+| `POST /api/cases/{id}/embedding` | 生成向量 → status="ready" | id=99999 → 404，已 ready → 重新生成覆盖 |
+| `POST /api/cases/rebuild-embeddings` | 批量重建 → rebuilt>=0 | 无案例 → rebuilt=0 |
+| `GET /api/dictionaries` | 5 类别非空 | — |
+| `POST /api/events/profile` | 返回 profile + confidence | event_text<50 → 422，event_text>800 → 422 |
+| `POST /api/rag/retrieve` | Top-K + 6 分数 | 无 ready 案例 → 空 results |
+| `POST /api/rag/evidence-pack` | 含 limitations | — |
+| `POST /api/reports` | 201 + 3 segments | 无效 profile → 422 |
+| `GET /api/reports/{id}` | 返回完整报告 | id=99999 → 404 |
+| `POST /api/reports/{id}/segments/{key}/regenerate` | 仅该段更新 | 无效 key → 404 |
+| `GET /api/reports/{id}/export.md` | 返回 MD 文本 | id=99999 → 404 |
+| `GET /api/settings/public` | 返回配置 | 绝不返回真实 Key（断言 values 不含 `sk-` 或 `api-` 前缀） |
+| `POST /api/evaluation/run-demo` | golden_event_1/2/3 均返回 | 无效 demo_event_id → error message |
 
-### 11.2 验收
+### 9.3 RAG 管线正确性测试
 
-- [ ] `python scripts/import_csv.py ../data/Sheet1.csv` → 导入 9~10 条
-- [ ] `python scripts/rebuild_embeddings.py` → 全部标记为 ready
+**分数计算验证：**
 
----
+| 测试 | 预期 |
+|---|---|
+| `demand_score(["A","B"], ["A","B"])` | 1.0（完全匹配） |
+| `demand_score(["A","B"], ["A"])` | 0.5（部分匹配） |
+| `demand_score([], [])` | 0.5（双方空） |
+| `heat_score(3, 3)` | 1.0 |
+| `heat_score(5, 1)` | 0.0（相差 4） |
+| `domain_score("文化传播类", "文化传播类", matrix)` | 1.0 |
+| `domain_score("文化传播类", "思想政治教育类", matrix)` | 0.5（矩阵查表） |
+| `domain_score("文化传播类", "技术分析类", matrix)` | 0.0（矩阵查表） |
+| `effect_score(5)` | 1.0 |
+| `effect_score(None)` | 0.6 |
+| `final_score` 权重和 | = 0.45*s + 0.20*d + 0.15*h + 0.10*dom + 0.10*e（精确到 4 位小数） |
 
-## 12. 阶段 10：测试 + 演示打磨
+**RAG 行为验证：**
 
-### 12.1 文件清单
+| 测试 | 预期 |
+|---|---|
+| 停用案例不参与检索 | toggle → `enabled=false` → retrieve 结果中不含该案例 |
+| embedding_status!=ready 不参与 | 取消 embedding → retrieve 结果中不含该案例 |
+| 无 ready 案例时 retrieve | 返回空 results + 非空 query_text |
+| Top-K 按 final_score 降序 | results[0].final_score >= results[1].final_score >= results[2].final_score |
+| Evidence Pack 的 retrieved_cases 仅含 Top-K 案例 | 数量 = top_k 或 less |
+| Evidence Pack limitations 包含 "小样本" | 文本含 "小样本" 或 "课程项目" |
 
-| 文件 | 操作 | 关键内容 |
+### 9.4 Prompt 安全回归测试
+
+| 测试 | 方法 | 预期 |
 |---|---|---|
-| `backend/tests/conftest.py` | 创建 | pytest fixture: temp SQLite + mock_mode=True + TestClient |
-| `backend/tests/unit/test_scores.py` | 创建 | test_demand_score, test_heat_score, test_domain_score, test_final_score |
-| `backend/tests/unit/test_text_builders.py` | 创建 | test_embedding_text_contains_demands, test_query_text_formatted |
-| `backend/tests/integration/test_cases_api.py` | 创建 | test_create/list/update/delete/toggle/import_csv |
-| `backend/tests/integration/test_rag_api.py` | 创建 | test_retrieve_returns_top_k, test_scores_summary, test_disabled_excluded |
-| `backend/tests/integration/test_reports_api.py` | 创建 | test_create_3_segments, test_regenerate_single, test_export_md |
-| `backend/tests/integration/test_settings_api.py` | 创建 | test_no_real_key, test_weights_match_config |
-| `frontend/src/components/cases/__tests__/CaseCard.test.tsx` | 创建 | 渲染检查 |
-| `frontend/src/components/generate/__tests__/SimilarityBreakdown.test.tsx` | 创建 | 分数展示 + 百分比转换 |
-| `frontend/src/components/reports/__tests__/ReportSegmentCard.test.tsx` | 创建 | loading/ready/failed 状态 |
-| `frontend/e2e/demo-flow.spec.ts` | 创建 | Playwright：首页→案例库→智能生成→画像→检索→报告→导出 |
-| `frontend/e2e/report-regenerate.spec.ts` | 创建 | Playwright：进入报告→重新生成第 2 段→验证第 1/3 段不变 |
+| 报告只有三段标题 | 正则搜索 `## 一、` `## 二、` `## 三、` | 恰好 3 个匹配 |
+| 无多余章节 | 搜索 "传播路径分析" "社交网络拓扑" "全网监测显示" "PSM" "DID" | 0 次出现 |
+| 免责声明必含关键词 | 搜索 "辅助参考" 或 "人工复核" 或 "不构成真实决策" | ≥1 次出现 |
+| 第一段引用案例 | 搜索 case 标题或 case_code | ≥1 次出现（至少引用一个案例） |
+| 第二段有话术 | 搜索 "回应话术" 或 "回应" | ≥1 次出现 |
+| 三段独立生成 | Mock 模式下三次 chat 调用各自独立（通过 model_name 日志验证 3 次 LLM call） | 3 次独立调用 |
 
-### 12.2 验收
+### 9.5 前端组件五态测试矩阵
 
-- [ ] `pytest` 全部通过
+每个组件必须通过以下状态测试：
+
+| 组件 | loading | error | empty | success | disabled |
+|---|---|---|---|---|---|
+| `CaseCard` | — | — | — | 渲染标题+Badge+分数 | 停用卡片 opacity 降低 |
+| `CaseDetailDrawer` | Skeleton | error panel | "无案例数据" | 完整详情 | — |
+| `CaseFormDialog` | 提交按钮 + spinner | 字段下方错误提示 | — | 表单填充 | 提交中按钮 disabled |
+| `EventInputPanel` | 按钮 + spinner | toast | placeholder 文本 | 字数统计正常 | <50 字时按钮 disabled |
+| `ProfileEditor` | Skeleton | error + 重试 | "尚未生成画像" | 可编辑字段 | 检索中时不可编辑 |
+| `RetrievedCaseCard` | — | — | — | 分数+解释 | — |
+| `SimilarityBreakdown` | — | — | "—"（无数据） | 5 条进度条 | — |
+| `ReportSegmentCard` | Skeleton | "生成失败" + 重试 | "等待生成…" | Markdown 渲染 | 生成中按钮 disabled |
+| `DashboardPage` | 4 Skeleton 卡片 | error panel | — | 数据展示 | — |
+| `SettingsPage` | Skeleton | toast | — | 数据展示 | — |
+| `EvaluationPage` | Spinner | toast | "选择测试事件" | 结果+图表 | 运行中按钮 disabled |
+
+### 9.6 E2E 测试
+
+**完整演示流程（Playwright）：**
+
+1. 打开 `/` → 确认工作台加载、MetricCards 有数据
+2. 打开 `/cases` → 确认案例卡片存在（28 条）
+3. 点击示例输入 "高校食堂卫生问题"
+4. 点击 [生成事件画像] → 等待 profile 展示
+5. 修改热度等级为 4 → 点击 [检索参考案例]
+6. 等待 Top-3 卡片 + SimilarityBreakdown
+7. 点击 [生成三段式报告] → 等待跳转 `/reports/:id`
+8. 确认 3 个段落卡片显示
+9. 点击第二段 [重新生成] → 等待 loading → 内容变化
+10. 点击 [导出 Markdown] → 确认文件下载
+
+### 9.7 验收
+
+- [ ] `pytest` 全部通过（覆盖率 ≥ 期望值）
 - [ ] `pnpm test` 全部通过
-- [ ] `pnpm build` 无错误
+- [ ] `pnpm build` 无类型错误
 - [ ] `pnpm e2e` demo-flow 通过
-- [ ] 无 API Key 时可完整演示（Mock 模式）
-- [ ] 设置页不泄露真实密钥
-- [ ] 评估页可运行 golden events
-- [ ] 报告不含"全网监测"、"PSM"、"DID"
-- [ ] 报告含三段固定标题和免责声明
+- [ ] Mock 模式端到端可演示（无 API Key）
+- [ ] `ruff check .` 通过
 
 ---
 
-## 13. 功能优先级表
+## 10. 阶段 10：演示打磨
 
-| 功能 | 优先级 | 所属阶段 |
-|---|---|---|
-| 根 .gitignore + Git 首次提交 | P0 | 0 |
-| FastAPI + SQLite + health | P0 | 1 |
-| Schemas (7 文件) | P0 | 1 |
-| API 路由 (8 文件) | P0 | 1 |
-| Utils (3 文件) | P0 | 2 |
-| Case CRUD Service + API | P0 | 2 |
-| CSV 导入 Service + API | P0 | 2 |
-| Dictionary Service + API | P0 | 2 |
-| Embedding Service + API | P0 | 2 |
-| Prompts (1 文件) | P0 | 3 |
-| Profile Service + API | P0 | 3 |
-| RAG Retrieve + Rerank | P0 | 3 |
-| Evidence Pack Service | P0 | 3 |
-| Report Generation Service | P0 | 3 |
-| 前端 AppShell + 视觉系统 | P0 | 4 |
-| 案例库 UI | P0 | 5 |
-| 智能生成 UI | P0 | 6 |
-| 报告页 UI | P0 | 7 |
-| 工作台 Dashboard | P1 | 8 |
-| 设置页 | P1 | 8 |
-| 评估页 | P1 | 8 |
-| 脚本 (import/rebuild) | P1 | 9 |
-| 后端测试 | P0 | 10 |
-| 前端测试 | P0 | 10 |
-| E2E 演示 | P1 | 10 |
-| docx 导出 | P1 | 后续 |
-| LangChain adapter | P2 | 后续 |
+### 10.1 任务
+
+- [ ] 视觉检查：黑板背景、白灰画布、蓝图线稿对比度合格
+- [ ] 投影可读性：字体不小于 14px、正文与背景对比度 ≥ 4.5:1
+- [ ] 空状态文案补齐：每个空状态有操作引导
+- [ ] Loading 动效统一：Skeleton / Spinner 风格一致、无闪烁
+- [ ] Toast 文案统一：成功 "已XXX" / 失败 "XXX失败，请重试"
+- [ ] 按钮 disabled 状态统一：opacity 降低 + cursor not-allowed
+- [ ] `prefers-reduced-motion` 尊重：关闭背景动效
+- [ ] 演示脚本准备：按 PRD §10.1 走完整 10 步
+- [ ] 演示数据固定：Seed 的 3 条 demo event + 28 条案例
 
 ---
 
-## 14. 最终交付验收
+## 11. 功能优先级表
 
-- [ ] 用户能导入或新增案例
-- [ ] 用户能生成 embedding
-- [ ] 用户能输入新事件（50-800 字）
-- [ ] 系统能生成事件画像（含 confidence）
-- [ ] 系统能检索 Top-K 参考案例（含 5 子分数 + explanation）
-- [ ] 系统能生成三段式报告（每段独立生成）
-- [ ] 用户能局部重生成报告段落
-- [ ] 用户能导出 Markdown
-- [ ] Mock 模式可完整跑通
-- [ ] 风格符合黑色舞台 + 白灰画布 + 蓝图线稿 + 几何节点
-- [ ] 报告明确免责声明
-- [ ] 不出现"全网监测"、"PSM"、"DID"
-- [ ] 设置页显示 key 状态不泄露真实密钥
+| 功能 | 优先级 | 阶段 | 状态 |
+|---|---|---|---|
+| 根 .gitignore + Git | P0 | 0 | ✅ |
+| Schemas + API + Services | P0 | 1-2 | ✅ |
+| CSV 导入 28 条案例 | P0 | 2 | ✅ |
+| RAG 管线集成验证 | P0 | 3 | — |
+| 前端 AppShell + 视觉 | P0 | 4 | — |
+| 案例库 UI | P0 | 5 | — |
+| 智能生成 UI | P0 | 6 | — |
+| 报告页 UI | P0 | 7 | — |
+| 设置页 | P1 | 8 | — |
+| 评估页 | P1 | 8 | — |
+| 工作台 | P1 | 8 | — |
+| 全面测试 | P0 | 9 | — |
+| 演示打磨 | P1 | 10 | — |
+| docx 导出 | P1 | 后续 | — |
+| LangChain adapter | P2 | 后续 | — |
 
 ---
 
-## 15. 关键约束速查表
+## 12. 关键约束速查
 
 | # | 约束 | 来源 |
 |---|---|---|
-| 1 | 所有 ID 为 int | PRD 复查决策 #3 |
-| 2 | 硬删除（级联删除 embedding） | PRD 复查决策 #9 |
-| 3 | 编辑案例 → embedding_status = "none" | Backend 5.3 |
-| 4 | Mock 模式 P0（无 API Key 可演示） | PRD 复查决策 #1 |
-| 5 | 报告只有三段，分段独立生成 | CLAUDE.md #1 |
-| 6 | Evidence Pack 是报告唯一依据 | CLAUDE.md #2 |
-| 7 | 报告编辑 = 重生成/复制/导出（不支持手动编辑） | PRD 复查决策 #2 |
-| 8 | DomainScore 使用字典关系矩阵查表 | PRD 复查决策 #4 |
-| 9 | event_text: 50-800 chars | PRD 复查决策 #8 |
-| 10 | 设置页不返回真实 API Key | AGENT.md #5 |
-| 11 | DomainScore 未定义关系 = 0.0 | PRD 5.2.2 |
-| 12 | EffectScore 缺失时 = 0.6 | PRD 6.5.4 |
-| 13 | HeatScore = 1 - abs(diff)/4 | PRD 6.5.4 |
-| 14 | Cosine 归一化到 [0, 1] | Backend 6.4.2 |
+| 1 | 所有 ID 为 int | PRD 复查 #3 |
+| 2 | 硬删除（级联 embedding） | PRD 复查 #9 |
+| 3 | 编辑案例 → embedding_status="none" | Backend §5.3 |
+| 4 | Mock P0（无 Key 可全流程演示） | PRD 复查 #1 |
+| 5 | 报告三段，每段独立 LLM 调用 | PRD §3.4 |
+| 6 | Evidence Pack 是报告唯一依据 | PRD §6.6 |
+| 7 | 报告编辑 = 重生成/复制/导出（无手动编辑） | PRD 复查 #2 |
+| 8 | DomainScore 字典关系矩阵 | PRD 复查 #4 |
+| 9 | event_text 50-800 chars | PRD 复查 #8 |
+| 10 | `/api/settings/public` 绝不返回真实 Key | AGENT §3.5 |
+| 11 | 前端不接触 API Key | AGENT §3.5 |
+| 12 | `FinalScore = 0.45*Sem + 0.20*Dem + 0.15*Heat + 0.10*Dom + 0.10*Eff` | PRD §6.5.4 |
+| 13 | EffectScore 缺失 → 0.6 | PRD §6.5.4 |
+| 14 | Cosine 归一化 [0, 1] | Backend §6.4.2 |
+| 15 | CSV 导入删除 `Unnamed:*` 列，拆分逗号字段 | Backend §6.1.1 |
+| 16 | 报告不得含 "全网监测" "PSM" "DID" | PRD §6.7 |

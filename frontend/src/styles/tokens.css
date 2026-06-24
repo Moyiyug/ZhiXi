@@ -1,0 +1,48 @@
+:root {
+  /* ZhiXi 色板 */
+  --zx-bg: #030406;
+  --zx-bg-soft: #07090d;
+  --zx-stage: #0b0d12;
+  --zx-canvas: #eef3f4;
+  --zx-canvas-soft: #dfe8ea;
+  --zx-ink: #111827;
+  --zx-muted: #7b8794;
+  --zx-line: rgba(44, 102, 176, 0.42);
+  --zx-blue: #2f6fed;
+  --zx-blue-soft: #85aef8;
+  --zx-cyan: #b7e4ff;
+  --zx-white: #f8fbff;
+  --zx-danger: #e15b64;
+  --zx-warning: #e8b85d;
+  --zx-success: #7ccfa5;
+
+  /* 字体 */
+  --font-sans: Inter, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+
+  /* shadcn/ui bridge */
+  --background: var(--zx-bg);
+  --foreground: var(--zx-canvas);
+  --primary: var(--zx-blue);
+  --primary-foreground: var(--zx-white);
+  --secondary: var(--zx-bg-soft);
+  --secondary-foreground: var(--zx-canvas-soft);
+  --muted: var(--zx-bg-soft);
+  --muted-foreground: var(--zx-muted);
+  --card: var(--zx-stage);
+  --card-foreground: var(--zx-canvas);
+  --border: var(--zx-line);
+  --input: var(--zx-line);
+  --ring: var(--zx-blue);
+  --destructive: var(--zx-danger);
+  --destructive-foreground: var(--zx-white);
+  --accent: var(--zx-blue-soft);
+  --accent-foreground: var(--zx-ink);
+  --radius: 0.5rem;
+}
+
+/* 暗色主题保持一致 — ZhiXi 始终为暗色舞台 */
+.dark {
+  --background: var(--zx-bg);
+  --foreground: var(--zx-canvas);
+}
