@@ -51,11 +51,21 @@ export function EvidencePackDrawer({
                 <div key={c.case_id} className="rounded border border-[--zx-line] bg-[--zx-panel-soft] p-2">
                   <p className="text-xs font-medium text-[--zx-ink]">{c.title}</p>
                   <p className="mt-0.5 text-[10px] text-[--zx-muted]">
-                    {c.domain} · 匹配度 {formatPercent(c.final_score)}
+                    {c.domain} · 匹配度 {formatPercent(c.final_score)} · 路由 {formatPercent(c.route_score)}
                   </p>
+                  {c.route_reason && (
+                    <p className="mt-1 text-[10px] leading-relaxed text-[--zx-muted] line-clamp-2">
+                      {c.route_reason}
+                    </p>
+                  )}
                   <p className="mt-1 text-[10px] leading-relaxed text-[--zx-muted] line-clamp-2">
-                    {c.event_description}
+                    {c.evidence_fragments?.evolution_path || c.event_description}
                   </p>
+                  {c.evidence_fragments?.action_checkpoints?.length > 0 && (
+                    <p className="mt-1 text-[10px] leading-relaxed text-[--zx-blue-soft] line-clamp-2">
+                      {c.evidence_fragments.action_checkpoints.join(" / ")}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

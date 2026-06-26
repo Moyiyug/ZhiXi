@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { SegmentActionBar } from "./SegmentActionBar"
 import type { ReportSegmentResponse } from "@/types/api"
 import { GENERATION_STATUS_LABELS } from "@/lib/constants"
+import { AlertTriangle } from "lucide-react"
 import Markdown from "react-markdown"
 
 interface ReportSegmentCardProps {
@@ -13,6 +14,18 @@ interface ReportSegmentCardProps {
   isRegenerating: boolean
 }
 
+function looksTruncated(content: string) {
+  const text = content.trim()
+  if (!text) return true
+  if (/[“‘：:、，,\-—]$/.test(text)) return true
+  if ((text.match(/“/g)?.length ?? 0) > (text.match(/”/g)?.length ?? 0)) return true
+  if ((text.match(/‘/g)?.length ?? 0) > (text.match(/’/g)?.length ?? 0)) return true
+
+  const lastLine = text.split(/\r?\n/).at(-1)?.trim() ?? ""
+  const normalized = lastLine.replace(/^[-*]\s*/, "").replace(/[*_`]/g, "").replace(/[：:]\s*$/, "").trim()
+  return ["责任主体", "具体动作", "交付物", "回应话术", "避免事项", "判断依据", "可参考点", "不确定性"].includes(normalized)
+}
+
 export function ReportSegmentCard({
   segment,
   onRegenerate,
@@ -21,6 +34,7 @@ export function ReportSegmentCard({
   isRegenerating,
 }: ReportSegmentCardProps) {
   const status = segment.generation_status
+  const isPossiblyTruncated = status === "ready" && looksTruncated(segment.content_md)
 
   // pending
   if (status === "pending") {
@@ -87,6 +101,13 @@ export function ReportSegmentCard({
         <Markdown>{segment.content_md}</Markdown>
       </div>
 
+      {isPossiblyTruncated && (
+        <div className="mt-4 flex items-start gap-2 rounded-lg border border-[--zx-warning]/30 bg-[--zx-warning]/5 p-3 text-xs leading-5 text-[--zx-warning]">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <p>本段可能在模型输出时被截断。请重新生成补全后再复制、导出或用于汇报。</p>
+        </div>
+      )}
+
       {/* 尾部信息 */}
       <div className="mt-4 flex items-center gap-3 text-[10px] text-[--zx-muted]">
         {segment.model_name && <span>model: {segment.model_name}</span>}
@@ -98,6 +119,7 @@ export function ReportSegmentCard({
         onCopy={onCopy}
         onViewEvidence={onViewEvidence}
         isRegenerating={isRegenerating}
+        regenerateLabel={isPossiblyTruncated ? "重新生成补全" : undefined}
       />
     </article>
   )

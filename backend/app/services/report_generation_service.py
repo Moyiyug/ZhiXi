@@ -92,7 +92,17 @@ class ReportGenerationService:
         t0 = time.perf_counter()
         call_status = "ok"
         try:
-            content = self._strip_segment_title(client.chat(prompt, model=model_name), seg_info["title"])
+            content = self._strip_segment_title(
+                client.chat(
+                    prompt,
+                    model=model_name,
+                    max_tokens=seg_info.get("max_tokens", 1600),
+                    max_continuations=seg_info.get("max_continuations", 0),
+                ),
+                seg_info["title"],
+            )
+            if self._looks_truncated(content):
+                raise ValueError("LLM response appears truncated")
             segment.content_md = content
             segment.model_name = model_name
             segment.generation_status = "ready"
@@ -127,6 +137,8 @@ class ReportGenerationService:
         context_metrics = evidence_pack.get("context_metrics") or {}
         case_library = context_metrics.get("case_library") or {}
         retrieval = context_metrics.get("retrieval") or {}
+        routing = retrieval.get("routing") or {}
+        feature_stats = context_metrics.get("case_feature_stats") or {}
         limitations = evidence_pack.get("limitations") or []
 
         lines = [
@@ -134,13 +146,14 @@ class ReportGenerationService:
             f"- 摘要：{cls._clip(current.get('event_summary'), 260)}",
             f"- 领域：{cls._text(current.get('domain'))}；热度等级：{cls._text(current.get('heat_level'))}；置信度：{cls._format_decimal(current.get('confidence'))}",
             f"- 公众诉求：{cls._join_items(current.get('public_demands'))}",
+            f"- 传播平台线索：{cls._join_items(current.get('platforms'))}",
             f"- 风险关键词：{cls._join_items(current.get('risk_keywords'))}",
             f"- 初步策略方向：{cls._join_items(current.get('inferred_strategy_direction'))}",
             f"- 检索查询文本：{cls._clip(evidence_pack.get('query_text'), 320)}",
             "",
             "【检索与评分概况】",
             f"- 案例库：总量 {case_library.get('total_cases', 0)}；可检索 {case_library.get('enabled_cases', 0)}；已向量化 {case_library.get('embedding_ready_cases', 0)}。",
-            f"- 召回：候选 {retrieval.get('candidate_count', 0)}；Top-N {retrieval.get('top_n', 0)}；Top-K {retrieval.get('top_k', len(retrieved_cases))}；同领域命中 {retrieval.get('same_domain_hits', 0)}。",
+            f"- 双层检索：第一层路由池 {retrieval.get('route_pool_count', retrieval.get('candidate_count', 0))}/{retrieval.get('candidate_count', 0)}；第二层 Top-N {retrieval.get('top_n', 0)}；Top-K {retrieval.get('top_k', len(retrieved_cases))}；同领域命中 {retrieval.get('same_domain_hits', 0)}。",
             f"- 平均匹配度：{cls._format_score(retrieval.get('average_final_score'))}；最终分：{cls._join_items([cls._format_score(v) for v in retrieval.get('final_scores', [])])}",
         ]
 
@@ -155,9 +168,18 @@ class ReportGenerationService:
                 f"效果 {cls._format_weight(weights.get('effect'))}。"
             )
 
+        route_lines = cls._build_routing_lines(routing)
+        if route_lines:
+            lines.extend(["", "【第一层路由诊断】", *route_lines])
+
+        stats_lines = cls._build_feature_stat_lines(feature_stats)
+        if stats_lines:
+            lines.extend(["", "【案例库结构化指标】", *stats_lines])
+
         lines.extend(["", "【RAG 参考案例压缩材料】"])
         if retrieved_cases:
             for index, case in enumerate(retrieved_cases, start=1):
+                fragments = case.get("evidence_fragments") or {}
                 score_line = (
                     f"语义 {cls._format_score(case.get('semantic_score'))}；"
                     f"诉求 {cls._format_score(case.get('demand_score'))}；"
@@ -166,10 +188,16 @@ class ReportGenerationService:
                     f"效果 {cls._format_score(case.get('effect_score'))}"
                 )
                 lines.extend([
-                    f"{index}. {cls._text(case.get('title'))}（领域：{cls._text(case.get('domain'))}；综合匹配：{cls._format_score(case.get('final_score'))}）",
+                    f"{index}. {cls._text(case.get('title'))}（领域：{cls._text(case.get('domain'))}；热度：{cls._text(case.get('heat_level'))}；综合匹配：{cls._format_score(case.get('final_score'))}；路由分：{cls._format_score(case.get('route_score'))}）",
                     f"   - 推荐理由：{cls._clip(case.get('explanation'), 220)}",
+                    f"   - 路由依据：{cls._clip(case.get('route_reason'), 180)}；命中维度：{cls._join_items(case.get('route_dimensions'))}",
                     f"   - 事件摘录：{cls._clip(case.get('event_description'), 240)}",
-                    f"   - 可借鉴策略：{cls._clip(case.get('strategy_text'), 320)}",
+                    f"   - 事件演化：{cls._clip(fragments.get('evolution_path'), 260)}",
+                    f"   - 传播与影响：{cls._clip(fragments.get('propagation_chain'), 220)}；{cls._clip(fragments.get('impact_scope'), 220)}",
+                    f"   - 可借鉴策略：{cls._clip(fragments.get('response_actions') or case.get('strategy_text'), 340)}",
+                    f"   - 历史反馈：{cls._clip(fragments.get('outcome_feedback'), 240)}",
+                    f"   - 可执行检查点：{cls._join_items(fragments.get('action_checkpoints'))}",
+                    f"   - 本事件改写提示：{cls._clip(case.get('actionability_hint'), 240)}",
                     f"   - 分数拆解：{score_line}。",
                 ])
         else:
@@ -222,6 +250,62 @@ class ReportGenerationService:
             lines.append(f"- 策略「{cls._text(label)}」：{cls._clip(hint, 180)}")
 
         return lines
+
+    @classmethod
+    def _build_routing_lines(cls, routing: dict) -> list[str]:
+        if not routing:
+            return []
+        profile_route = routing.get("profile_route") or {}
+        lines = [
+            "- 路由输入："
+            f"领域 {cls._text(profile_route.get('domain'))}；"
+            f"热度 {cls._text(profile_route.get('heat_level'))}；"
+            f"诉求 {cls._join_items(profile_route.get('public_demands'))}；"
+            f"平台 {cls._join_items(profile_route.get('platforms'))}。"
+        ]
+        route_scores = routing.get("top_route_scores") or []
+        if route_scores:
+            compact_scores = []
+            for item in route_scores[:5]:
+                compact_scores.append(
+                    f"{cls._clip(item.get('title'), 32)}"
+                    f"({cls._format_score(item.get('route_score'))}，"
+                    f"{cls._join_items(item.get('dimensions'))})"
+                )
+            lines.append(f"- 路由候选：{cls._join_items(compact_scores)}")
+        threshold = routing.get("route_threshold")
+        if threshold is not None:
+            lines.append(f"- 路由阈值：{cls._format_score(threshold)}；低于阈值时由全局召回兜底。")
+        return lines
+
+    @classmethod
+    def _build_feature_stat_lines(cls, feature_stats: dict) -> list[str]:
+        if not feature_stats:
+            return []
+        heat = feature_stats.get("heat") or {}
+        effect = feature_stats.get("effect_score") or {}
+        lines = [
+            f"- 热度分布：样本 {heat.get('count', 0)}；均值 {cls._format_decimal(heat.get('mean'))}；方差 {cls._format_decimal(heat.get('variance'))}；区间 {cls._text(heat.get('min'))}-{cls._text(heat.get('max'))}。",
+            f"- 效果评分：样本 {effect.get('count', 0)}；均值 {cls._format_decimal(effect.get('mean'))}；方差 {cls._format_decimal(effect.get('variance'))}。",
+        ]
+        compact_maps = [
+            ("领域分布", feature_stats.get("domain_distribution")),
+            ("主要公众诉求", feature_stats.get("top_public_demands")),
+            ("主要策略类型", feature_stats.get("top_strategy_types")),
+            ("响应速度分布", feature_stats.get("response_speed_distribution")),
+        ]
+        for label, values in compact_maps:
+            text = cls._format_count_map(values)
+            if text:
+                lines.append(f"- {label}：{text}")
+        return lines
+
+    @staticmethod
+    def _format_count_map(values: object) -> str:
+        if not isinstance(values, dict) or not values:
+            return ""
+        parts = [f"{key} {value}" for key, value in list(values.items())[:6]]
+        return "；".join(parts)
 
     @staticmethod
     def _clip(value: object, limit: int = 240) -> str:
@@ -280,6 +364,31 @@ class ReportGenerationService:
         if first == title:
             return "\n".join(lines[1:]).strip()
         return content.strip()
+
+    @staticmethod
+    def _looks_truncated(content: str) -> bool:
+        text = content.strip()
+        if not text:
+            return True
+        if text.endswith(("“", "‘", "：", ":", "、", "，", ",", "-", "—")):
+            return True
+        if text.count("“") > text.count("”") or text.count("‘") > text.count("’"):
+            return True
+
+        last_line = text.splitlines()[-1].strip()
+        normalized = re.sub(r"^[\-*]\s*", "", last_line)
+        normalized = re.sub(r"[*_`]+", "", normalized).strip(" ：:")
+        dangling_labels = {
+            "责任主体",
+            "具体动作",
+            "交付物",
+            "回应话术",
+            "避免事项",
+            "判断依据",
+            "可参考点",
+            "不确定性",
+        }
+        return normalized in dangling_labels
 
     def get_report(self, report_id: int) -> ReportResponse:
         report = self.session.get(Report, report_id)

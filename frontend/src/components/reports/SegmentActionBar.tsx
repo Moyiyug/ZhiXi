@@ -6,6 +6,7 @@ interface SegmentActionBarProps {
   onCopy: () => void
   onViewEvidence: () => void
   isRegenerating: boolean
+  regenerateLabel?: string
 }
 
 export function SegmentActionBar({
@@ -13,6 +14,7 @@ export function SegmentActionBar({
   onCopy,
   onViewEvidence,
   isRegenerating,
+  regenerateLabel = "重新生成",
 }: SegmentActionBarProps) {
   return (
     <div className="grid grid-cols-1 gap-2 border-t border-[--zx-line] pt-3 sm:flex sm:flex-wrap">
@@ -24,7 +26,7 @@ export function SegmentActionBar({
         className="w-full justify-start text-xs text-[--zx-muted] hover:text-[--zx-blue-soft] sm:w-auto"
       >
         <RefreshCw className={`mr-1 h-3.5 w-3.5 ${isRegenerating ? "animate-spin" : ""}`} />
-        {isRegenerating ? "生成中..." : "重新生成"}
+        {isRegenerating ? "生成中..." : regenerateLabel}
       </Button>
       <Button
         variant="ghost"

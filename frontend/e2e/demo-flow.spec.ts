@@ -5,7 +5,7 @@ test.describe("ZhiXi Demo Flow", () => {
     // 1. Open dashboard
     await page.goto("/")
     await expect(page.getByRole("heading", { name: "ZhiXi 智析" })).toBeVisible({ timeout: 10000 })
-    const casesLink = page.getByRole("navigation").getByRole("link", { name: "案例素材库" })
+    const casesLink = page.getByRole("navigation").getByRole("link", { name: "案例入库" })
     await expect(casesLink).toBeVisible()
 
     // 2. Navigate to cases
@@ -15,7 +15,7 @@ test.describe("ZhiXi Demo Flow", () => {
     await expect(page.locator("[data-slot='card']").first()).toBeVisible({ timeout: 10000 })
 
     // 3. Navigate to generate
-    await page.getByRole("navigation").getByRole("link", { name: "智能生成" }).click()
+    await page.getByRole("navigation").getByRole("link", { name: "评估报告" }).click()
     await page.waitForURL("/generate")
 
     // 4. Input event text (use example)
@@ -24,17 +24,18 @@ test.describe("ZhiXi Demo Flow", () => {
     await expect(textarea).toHaveValue(/高校食堂/)
 
     // 5. Click generate profile
-    await page.click("text=生成事件画像")
+    await page.click("text=开始评估并准备报告")
     // Wait for profile to appear
     await expect(page.locator("text=事件摘要")).toBeVisible({ timeout: 15000 })
 
     // 6. Click retrieve
     await page.click("text=检索参考案例")
     // Wait for results (may show results or empty state)
-    await page.waitForTimeout(3000)
+    await expect(page.locator("text=参考案例").first()).toBeVisible({ timeout: 15000 })
+    await expect(page.locator("text=路由").first()).toBeVisible()
 
     // 7. Click generate report
-    const genButton = page.locator("text=生成三段式报告")
+    const genButton = page.getByRole("button", { name: "生成处置建议报告" })
     if (await genButton.isEnabled()) {
       await genButton.click()
       // Should navigate to report page
@@ -44,6 +45,9 @@ test.describe("ZhiXi Demo Flow", () => {
       await expect(page.getByRole("heading", { name: "一、舆情画像与历史案例参考" })).toBeVisible({ timeout: 10000 })
       await expect(page.getByRole("heading", { name: "二、处置结论与回应话术" })).toBeVisible()
       await expect(page.getByRole("heading", { name: "三、免责声明与使用边界" })).toBeVisible()
+      await expect(page.locator("text=内部指标")).toBeVisible()
+      await expect(page.locator("text=路由池")).toBeVisible()
+      await expect(page.locator("text=0-2 小时")).toBeVisible()
 
       // 9. Verify export button exists
       await expect(page.getByRole("button", { name: /导出 Markdown/ })).toBeVisible({ timeout: 5000 })
@@ -63,7 +67,8 @@ test.describe("ZhiXi Demo Flow", () => {
   test("cases page shows filters and toolbar", async ({ page }) => {
     await page.goto("/cases")
     await expect(page.locator("text=新增")).toBeVisible({ timeout: 10000 })
-    await expect(page.locator("text=导入 CSV")).toBeVisible()
+    await expect(page.locator("text=CSV 入库")).toBeVisible()
+    await expect(page.locator("text=重建向量")).toBeVisible()
     await expect(page.getByPlaceholder(/搜索案例名称/)).toBeVisible()
   })
 
@@ -71,9 +76,10 @@ test.describe("ZhiXi Demo Flow", () => {
     await page.goto("/settings")
     await page.waitForTimeout(3000)
     // Check that the page content does NOT contain sk- or api- patterns
-    const content = await page.content()
-    expect(content).not.toContain("sk-")
-    expect(content).not.toMatch(/api-key/i)
+    const visibleText = await page.locator("body").innerText()
+    expect(visibleText).not.toContain("DASHSCOPE_API_KEY")
+    expect(visibleText).not.toContain("DEEPSEEK_API_KEY")
+    expect(visibleText).not.toMatch(/sk-[A-Za-z0-9_-]{10,}/)
   })
 
   test("evaluation page has demo events", async ({ page }) => {

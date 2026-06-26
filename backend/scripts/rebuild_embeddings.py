@@ -3,8 +3,10 @@
 
 Usage:
     python scripts/rebuild_embeddings.py
+    python scripts/rebuild_embeddings.py --force
 """
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -20,11 +22,21 @@ from app.services.embedding_service import generate_embedding_svc
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Rebuild case embeddings.")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Rebuild embeddings for all enabled cases, including ready ones.",
+    )
+    args = parser.parse_args()
+
     initialize_database()
     run_all_seeds()
 
     with Session(engine) as session:
-        stmt = select(Case).where(Case.enabled).where(Case.embedding_status != "ready")
+        stmt = select(Case).where(Case.enabled)
+        if not args.force:
+            stmt = stmt.where(Case.embedding_status != "ready")
         cases = session.exec(stmt).all()
         print(f"Found {len(cases)} cases needing embedding.")
         for case in cases:

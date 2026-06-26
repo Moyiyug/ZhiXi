@@ -1,3 +1,6 @@
+from types import SimpleNamespace
+
+from app.schemas.event import CurrentEventProfile
 from app.services.rerank_service import RerankService
 
 DOMAIN_RELATIONS = {
@@ -87,6 +90,43 @@ class TestEffectScore:
     def test_zero(self):
         svc = RerankService()
         assert svc.effect_score(1) == 0.2
+
+
+class TestRouteMatch:
+    def test_route_match_exposes_professional_dimensions(self):
+        svc = RerankService()
+        case = SimpleNamespace(
+            title="高校食堂卫生问题",
+            domain="思想政治教育类",
+            heat_level=4,
+            public_demands_json='["要求信息公开", "要求问责"]',
+            risk_tags_json='["食品安全"]',
+            strategy_types_json='["信息公开型"]',
+            event_description="学生在微博和校内群反馈食品安全问题，要求公开调查。",
+            strategy_text="发布阶段性说明并公布整改清单。",
+            carrier_target="微博",
+            notes="",
+        )
+        profile = CurrentEventProfile(
+            event_summary="高校食堂卫生问题",
+            domain="思想政治教育类",
+            public_demands=["要求信息公开", "要求问责"],
+            heat_level=4,
+            risk_keywords=["食品安全"],
+            platforms=["微博"],
+            inferred_strategy_direction=["信息公开型"],
+            confidence=0.8,
+            profile_source="rule",
+        )
+
+        score, dimensions, reason = svc.route_match(case, profile, DOMAIN_RELATIONS)
+
+        assert score > 0.9
+        assert "同领域" in dimensions
+        assert "诉求高度重合" in dimensions
+        assert "平台线索命中" in dimensions
+        assert "风险关键词命中" in dimensions
+        assert "同领域" in reason
 
 
 class TestFinalScore:

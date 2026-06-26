@@ -1,0 +1,13 @@
+{
+  "reportUrl": "http://127.0.0.1:5173/reports/5",
+  "hasActionPlan": true,
+  "hasRoutingEvidence": true,
+  "desktopOverflow": 0,
+  "mobileOverflow": 0,
+  "screenshots": [
+    "dashboard-desktop.png",
+    "generate-results-desktop.png",
+    "report-desktop.png",
+    "report-mobile.png"
+  ]
+}

@@ -1,9 +1,13 @@
 import json
 
+from app.utils.case_evidence import build_case_evidence_fragments
+
 
 def build_case_embedding_text(case, dictionaries: dict) -> str:
     public_demands = _parse_json_list(case.public_demands_json)
     strategy_types = _parse_json_list(case.strategy_types_json)
+    risk_tags = _parse_json_list(case.risk_tags_json)
+    fragments = build_case_evidence_fragments(case)
     demand_hints = []
     for d in public_demands:
         items = [i for i in dictionaries.get("public_demands", []) if i["key"] == d]
@@ -21,8 +25,16 @@ def build_case_embedding_text(case, dictionaries: dict) -> str:
 公众诉求：{'、'.join(public_demands)}。{'；'.join(demand_hints)}
 热度等级：{case.heat_level}。{heat_meaning}
 策略类型：{'、'.join(strategy_types)}。{'；'.join(strategy_hints)}
+风险标签：{'、'.join(risk_tags)}
+涉及主体：{case.vertical_subject or '未知'}
+传播载体/对象：{case.carrier_target or '未知'}
+触发原因：{case.trigger_reason or '未知'}
 事件描述：{case.event_description}
+事件演化：{fragments.evolution_path}
+传播与影响：{fragments.propagation_chain}；{fragments.impact_scope}
 核心处置策略：{case.strategy_text}
+处置动作片段：{fragments.response_actions}
+反馈结果：{fragments.outcome_feedback}
 处置效果：{case.effect_score or '未知'}""".strip()
 
 

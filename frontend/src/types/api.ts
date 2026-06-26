@@ -47,8 +47,20 @@ export interface RetrievedCaseItem {
   case_id: number
   title: string
   domain: string
+  heat_level: number | null
+  response_speed: string | null
+  effect_score_raw: number | null
+  public_demands: string[]
+  strategy_types: string[]
+  risk_tags: string[]
+  vertical_subject: string | null
+  carrier_target: string | null
+  trigger_reason: string | null
   event_description: string
   strategy_text: string
+  route_score: number
+  route_dimensions: string[]
+  route_reason: string
   semantic_score: number
   demand_score: number
   heat_score: number
@@ -56,6 +68,16 @@ export interface RetrievedCaseItem {
   effect_score: number
   final_score: number
   explanation: string
+  evidence_fragments: {
+    event_overview: string
+    evolution_path: string
+    propagation_chain: string
+    impact_scope: string
+    response_actions: string
+    outcome_feedback: string
+    action_checkpoints: string[]
+  }
+  actionability_hint: string
 }
 
 export interface EvidencePackResponse {

@@ -6,6 +6,7 @@ from app.schemas.event import CurrentEventProfile
 from app.schemas.rag import EvidencePackResponse
 from app.services.dictionary_service import get_dictionaries
 from app.services.retrieval_service import RetrievalService
+from app.utils.case_evidence import build_case_feature_stats
 
 
 class EvidencePackService:
@@ -26,6 +27,7 @@ class EvidencePackService:
             "heat_levels": dicts.get("heat_levels", []),
         }
         scores = [round(c.final_score, 4) for c in retrieved_cases]
+        enabled_case_rows = self.session.exec(select(Case).where(Case.enabled)).all()
         context_metrics = {
             "case_library": {
                 "total_cases": self.session.exec(select(func.count()).select_from(Case)).one(),
@@ -49,6 +51,7 @@ class EvidencePackService:
                 "average_final_score": round(sum(scores) / len(scores), 4) if scores else 0.0,
                 "same_domain_hits": sum(1 for c in retrieved_cases if c.domain == profile.domain),
             },
+            "case_feature_stats": build_case_feature_stats(enabled_case_rows),
         }
 
         return EvidencePackResponse(

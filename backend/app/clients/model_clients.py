@@ -55,22 +55,47 @@ class OpenAICompatibleChatClient:
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
     def chat(self, prompt: str, model: str, **kwargs: Any) -> str:
-        response = self.client.chat.completions.create(
-            model=model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "你是智析 ZhiXi 的严谨写作助手，只能基于用户提供的材料回答。",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            temperature=kwargs.get("temperature", 0.2),
-            max_tokens=kwargs.get("max_tokens", 1000),
-        )
-        content = response.choices[0].message.content
-        if not content:
+        messages: list[dict[str, str]] = [
+            {
+                "role": "system",
+                "content": "你是智析 ZhiXi 的严谨写作助手，只能基于用户提供的材料回答。",
+            },
+            {"role": "user", "content": prompt},
+        ]
+        temperature = kwargs.get("temperature", 0.2)
+        max_tokens = kwargs.get("max_tokens", 1600)
+        max_continuations = kwargs.get("max_continuations", 0)
+        parts: list[str] = []
+        finish_reason = None
+
+        for attempt in range(max_continuations + 1):
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            choice = response.choices[0]
+            content = choice.message.content or ""
+            if not content.strip():
+                raise ValueError("LLM response was empty")
+            parts.append(content)
+            finish_reason = getattr(choice, "finish_reason", None)
+            if finish_reason != "length":
+                break
+            if attempt < max_continuations:
+                messages.append({"role": "assistant", "content": content})
+                messages.append({
+                    "role": "user",
+                    "content": "上一段在 token 限制处被截断。请从上一句未完成处继续写，只输出续写内容，不要重复前文，直到自然结束。",
+                })
+
+        full_content = "".join(parts).strip()
+        if not full_content:
             raise ValueError("LLM response was empty")
-        return content.strip()
+        if finish_reason == "length":
+            raise ValueError("LLM response was truncated by max_tokens")
+        return full_content
 
 
 def get_embedding_client():
