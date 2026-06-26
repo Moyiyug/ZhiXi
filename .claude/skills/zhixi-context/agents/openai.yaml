@@ -1,4 +1,0 @@
-interface:
-  display_name: "ZhiXi Context"
-  short_description: "Project guidance for the ZhiXi RAG prototype"
-  default_prompt: "Use $zhixi-context to implement or review ZhiXi project work against the documented PRD, Tech stack, API contract, and demo constraints."
