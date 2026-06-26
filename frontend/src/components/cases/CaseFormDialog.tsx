@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+﻿import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
@@ -89,7 +89,7 @@ export function CaseFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-auto border-[--zx-line] bg-[--zx-stage] text-[--zx-canvas]">
+      <DialogContent className="max-h-[85vh] max-w-2xl overflow-auto border-[--zx-line] bg-[--zx-stage] text-[--zx-ink]">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? "新增案例" : "编辑案例"}</DialogTitle>
         </DialogHeader>
@@ -190,13 +190,13 @@ export function CaseFormDialog({
           </div>
           {/* 事件描述 */}
           <div>
-            <label className="text-sm text-[--zx-muted]">事件核心描述 * (20-500 字)</label>
+            <label className="text-sm text-[--zx-muted]">事件核心描述 * (50-300 字)</label>
             <Textarea {...register("event_description")} rows={4} className="mt-1" />
             {errors.event_description && <p className="mt-1 text-xs text-[--zx-danger]">{errors.event_description.message}</p>}
           </div>
           {/* 策略文本 */}
           <div>
-            <label className="text-sm text-[--zx-muted]">核心处置策略 * (10-300 字)</label>
+            <label className="text-sm text-[--zx-muted]">核心处置策略 * (30-200 字)</label>
             <Textarea {...register("strategy_text")} rows={3} className="mt-1" />
             {errors.strategy_text && <p className="mt-1 text-xs text-[--zx-danger]">{errors.strategy_text.message}</p>}
           </div>

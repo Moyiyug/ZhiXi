@@ -18,7 +18,10 @@ export function EventInputPanel({ value, onChange, onSubmit, isLoading }: EventI
   return (
     <div className="space-y-3">
       <div>
-        <p className="mb-2 text-sm font-medium text-[--zx-canvas]">当前舆情事件</p>
+        <p className="mb-1 text-sm font-medium text-[--zx-ink]">事件评估输入</p>
+        <p className="mb-2 text-xs leading-5 text-[--zx-muted]">
+          输入待处置事件后，系统会先完成事件评估，再整理参考案例并生成处置建议报告。
+        </p>
         <Textarea
           placeholder="请输入当前舆情事件描述（50-800 字）…"
           value={value}
@@ -51,7 +54,7 @@ export function EventInputPanel({ value, onChange, onSubmit, isLoading }: EventI
         onClick={onSubmit}
         disabled={!valid || isLoading}
       >
-        {isLoading ? "生成中…" : "生成事件画像"}
+        {isLoading ? "评估画像中…" : "开始评估并准备报告"}
       </Button>
     </div>
   )

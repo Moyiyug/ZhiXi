@@ -7,13 +7,13 @@ class CaseCreate(BaseModel):
     case_code: str | None = None
     title: str = Field(..., min_length=1)
     domain: str
-    public_demands: list[str] = Field(default_factory=list)
+    public_demands: list[str] = Field(default_factory=list, min_length=1)
     heat_level: int = Field(default=3, ge=1, le=5)
     response_speed: str | None = None
     effect_score: int | None = Field(default=None, ge=1, le=5)
-    strategy_types: list[str] = Field(default_factory=list)
-    event_description: str = ""
-    strategy_text: str = ""
+    strategy_types: list[str] = Field(default_factory=list, min_length=1)
+    event_description: str = Field(..., min_length=1)
+    strategy_text: str = Field(..., min_length=1)
     vertical_subject: str | None = None
     carrier_target: str | None = None
     trigger_reason: str | None = None
@@ -24,13 +24,13 @@ class CaseCreate(BaseModel):
 class CaseUpdate(BaseModel):
     title: str | None = None
     domain: str | None = None
-    public_demands: list[str] | None = None
+    public_demands: list[str] | None = Field(default=None, min_length=1)
     heat_level: int | None = Field(default=None, ge=1, le=5)
     response_speed: str | None = None
     effect_score: int | None = Field(default=None, ge=1, le=5)
-    strategy_types: list[str] | None = None
-    event_description: str | None = None
-    strategy_text: str | None = None
+    strategy_types: list[str] | None = Field(default=None, min_length=1)
+    event_description: str | None = Field(default=None, min_length=1)
+    strategy_text: str | None = Field(default=None, min_length=1)
     vertical_subject: str | None = None
     carrier_target: str | None = None
     trigger_reason: str | None = None
@@ -57,6 +57,9 @@ class CaseResponse(BaseModel):
     notes: str | None
     enabled: bool
     embedding_status: str
+    embedding_text: str | None = None
+    embedding_model: str | None = None
+    embedding_dimensions: int | None = None
     created_at: datetime
     updated_at: datetime
 

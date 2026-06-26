@@ -1,11 +1,13 @@
 import json
+from datetime import UTC, datetime
 
 from sqlmodel import Session, select
 
-from app.clients.mock_client import MockEmbeddingClient
+from app.clients.model_clients import get_embedding_client
 from app.core.config import settings
 from app.core.logging import logger
 from app.models.case import Case, CaseEmbedding
+from app.models.retrieval import RetrievalRun
 from app.schemas.event import CurrentEventProfile
 from app.services.dictionary_service import get_dictionaries, get_domain_relations
 from app.services.rerank_service import RerankService
@@ -20,22 +22,8 @@ class RetrievalService:
     def retrieve(self, event_text: str, profile: CurrentEventProfile, top_k: int = 3) -> dict:
         dicts = get_dictionaries(self.session)
         query_text = build_query_text(event_text, profile, dicts)
-        use_mock = settings.app_mock_mode or not settings.has_embedding_key
-        if use_mock:
-            client = MockEmbeddingClient(
-                model="mock-embedding",
-                dimensions=settings.qwen_embedding_dimensions,
-            )
-            logger.debug("Using MockEmbeddingClient for query embedding")
-        else:
-            client = MockEmbeddingClient(
-                model=settings.qwen_embedding_model,
-                dimensions=settings.qwen_embedding_dimensions,
-            )
-            logger.info(
-                f"Would use real embedding client "
-                f"(model={settings.qwen_embedding_model}) — falling back to mock"
-            )
+        client = get_embedding_client()
+        logger.debug(f"Using embedding client model={client.model}")
         query_vec = client.embed(query_text)
 
         stmt = (
@@ -57,4 +45,25 @@ class RetrievalService:
         domain_relations = get_domain_relations(self.session)
         reranker = RerankService()
         results = reranker.rerank(top_n, profile, dicts, domain_relations, top_k)
-        return {"query_text": query_text, "results": results}
+
+        # Log retrieval run
+        run = RetrievalRun(
+            query_text=query_text,
+            profile_json=profile.model_dump_json(),
+            top_n=settings.retrieval_top_n,
+            top_k=top_k,
+            created_at=datetime.now(UTC),
+        )
+        self.session.add(run)
+        self.session.commit()
+
+        return {
+            "query_text": query_text,
+            "results": results,
+            "diagnostics": {
+                "candidate_count": len(candidates),
+                "top_n": len(top_n),
+                "top_k": top_k,
+                "retrieval_top_n_config": settings.retrieval_top_n,
+            },
+        }

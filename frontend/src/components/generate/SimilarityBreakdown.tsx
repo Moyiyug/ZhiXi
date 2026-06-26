@@ -1,4 +1,4 @@
-import { formatPercent } from "@/lib/format"
+﻿import { formatPercent } from "@/lib/format"
 import { SCORE_LABELS, SCORE_WEIGHTS, type ScoreBreakdown } from "@/lib/scores"
 import { cn } from "@/lib/utils"
 
@@ -19,7 +19,8 @@ export function SimilarityBreakdown({ scores, final }: SimilarityBreakdownProps)
   return (
     <div className="space-y-1.5">
       {SCORE_ORDER.map((key) => {
-        const value = scores[key] ?? 0
+        const hasValue = scores[key] != null && !isNaN(scores[key])
+        const value = hasValue ? scores[key] : 0
         return (
           <div key={key} className="flex items-center gap-2 text-xs">
             <span className="w-28 shrink-0 text-[--zx-muted]">
@@ -29,17 +30,17 @@ export function SimilarityBreakdown({ scores, final }: SimilarityBreakdownProps)
               </span>
             </span>
             {/* 进度条 */}
-            <div className="h-2 flex-1 rounded-full bg-[--zx-bg]">
+            <div className="h-2 flex-1 rounded-full bg-[--zx-track]">
               <div
                 className={cn(
                   "h-full rounded-full transition-all",
-                  value > 0.8 ? "bg-[--zx-success]" : value > 0.5 ? "bg-[--zx-blue]" : "bg-[--zx-muted]"
+                  hasValue ? (value > 0.8 ? "bg-[--zx-success]" : value > 0.5 ? "bg-[--zx-blue]" : "bg-[--zx-muted]") : "bg-transparent"
                 )}
-                style={{ width: `${Math.round(value * 100)}%` }}
+                style={{ width: hasValue ? `${Math.round(value * 100)}%` : "0%" }}
               />
             </div>
-            <span className="w-10 text-right font-mono text-[--zx-canvas]">
-              {formatPercent(value)}
+            <span className="w-10 text-right font-mono text-[--zx-ink]">
+              {hasValue ? formatPercent(value) : "—"}
             </span>
           </div>
         )
@@ -47,8 +48,8 @@ export function SimilarityBreakdown({ scores, final }: SimilarityBreakdownProps)
 
       {/* Final Score */}
       <div className="flex items-center gap-2 border-t border-[--zx-line] pt-1.5 text-sm">
-        <span className="w-28 shrink-0 font-semibold text-[--zx-canvas]">参考匹配度</span>
-        <div className="h-3 flex-1 rounded-full bg-[--zx-bg]">
+        <span className="w-28 shrink-0 font-semibold text-[--zx-ink]">参考匹配度</span>
+        <div className="h-3 flex-1 rounded-full bg-[--zx-track]">
           <div
             className={cn(
               "h-full rounded-full transition-all",

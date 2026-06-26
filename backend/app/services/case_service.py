@@ -62,7 +62,7 @@ class CaseService:
         case = self.session.get(Case, case_id)
         if not case:
             raise NotFoundError("Case not found", "CASE_NOT_FOUND")
-        return self._to_response(case)
+        return self._to_response(case, include_embedding=True)
 
     def update(self, case_id: int, data: CaseUpdate) -> CaseResponse:
         case = self.session.get(Case, case_id)
@@ -100,7 +100,18 @@ class CaseService:
         self.session.refresh(case)
         return self._to_response(case)
 
-    def _to_response(self, case: Case) -> CaseResponse:
+    def _to_response(self, case: Case, include_embedding: bool = False) -> CaseResponse:
+        embedding_text = None
+        embedding_model = None
+        embedding_dimensions = None
+        if include_embedding:
+            emb = self.session.exec(
+                select(CaseEmbedding).where(CaseEmbedding.case_id == case.id)
+            ).first()
+            if emb:
+                embedding_text = emb.embedding_text
+                embedding_model = emb.model_name
+                embedding_dimensions = emb.dimensions
         return CaseResponse(
             id=case.id,
             case_code=case.case_code,
@@ -120,6 +131,9 @@ class CaseService:
             notes=case.notes,
             enabled=case.enabled,
             embedding_status=case.embedding_status,
+            embedding_text=embedding_text,
+            embedding_model=embedding_model,
+            embedding_dimensions=embedding_dimensions,
             created_at=case.created_at,
             updated_at=case.updated_at,
         )

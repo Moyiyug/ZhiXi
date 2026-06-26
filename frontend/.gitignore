@@ -1,4 +1,4 @@
-# Logs
+# ---- Logs ----
 logs
 *.log
 npm-debug.log*
@@ -7,12 +7,52 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# ---- Dependencies ----
 node_modules
+
+# ---- Build ----
 dist
 dist-ssr
 *.local
+*.tsbuildinfo
 
-# Editor directories and files
+# ---- Test ----
+playwright-report/
+test-results/
+
+# ---- Agent / Claude 本地上下文 ----
+.agents/
+agents/
+.claude/
+claude/
+AGENT.md
+AGENTS.md
+CLAUDE.md
+
+# ---- Environment / Secrets ----
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+!**/.env.example
+
+*.key
+*.pem
+*.p12
+*.pfx
+*.secret
+*.token
+*api-key*
+*api_key*
+*apikey*
+*credentials*.json
+*service-account*.json
+secrets/
+.secrets/
+credentials/
+
+# ---- Editor ----
 .vscode/*
 !.vscode/extensions.json
 .idea

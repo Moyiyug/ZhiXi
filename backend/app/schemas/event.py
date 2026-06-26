@@ -15,7 +15,7 @@ class ProfileRequest(BaseModel):
 class CurrentEventProfile(BaseModel):
     event_summary: str
     domain: str
-    public_demands: list[str]
+    public_demands: list[str] = Field(min_length=1)
     heat_level: int = Field(ge=1, le=5)
     risk_keywords: list[str]
     platforms: list[str] = []

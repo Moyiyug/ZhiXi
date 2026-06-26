@@ -1,8 +1,9 @@
 import json
 import os
+
 import pytest
-from sqlmodel import Session, SQLModel, create_engine
 from fastapi.testclient import TestClient
+from sqlmodel import Session, SQLModel, create_engine
 
 os.environ["APP_MOCK_MODE"] = "true"
 os.environ["APP_DEBUG"] = "false"
@@ -14,14 +15,13 @@ def client(tmp_path):
     engine = create_engine(f"sqlite:///{db_path}", echo=False)
 
     # Import models
+    # Override module engine
+    import app.db.session as db_session
     import app.models.case  # noqa: F401
     import app.models.dictionary  # noqa: F401
     import app.models.evaluation  # noqa: F401
     import app.models.report  # noqa: F401
     import app.models.retrieval  # noqa: F401
-
-    # Override module engine
-    import app.db.session as db_session
     original = db_session.engine
     db_session.engine = engine
 
@@ -56,8 +56,8 @@ def client(tmp_path):
         with Session(engine) as s:
             yield s
 
-    from app.main import app
     from app.db.session import get_session
+    from app.main import app
 
     app.dependency_overrides[get_session] = get_test_session
 

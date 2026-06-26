@@ -12,8 +12,16 @@ export function createReport(data: {
   })
 }
 
+export function fetchReports(page = 1, pageSize = 5) {
+  return apiFetch<unknown[]>(`/api/reports?page=${page}&page_size=${pageSize}`)
+}
+
 export function fetchReport(id: number) {
   return apiFetch<unknown>(`/api/reports/${id}`)
+}
+
+export function deleteReport(id: number) {
+  return apiFetch<void>(`/api/reports/${id}`, { method: "DELETE" })
 }
 
 export function regenerateSegment(reportId: number, segmentKey: string) {

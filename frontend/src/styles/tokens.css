@@ -1,48 +1,58 @@
 :root {
   /* ZhiXi 色板 */
-  --zx-bg: #030406;
-  --zx-bg-soft: #07090d;
-  --zx-stage: #0b0d12;
-  --zx-canvas: #eef3f4;
-  --zx-canvas-soft: #dfe8ea;
-  --zx-ink: #111827;
-  --zx-muted: #7b8794;
-  --zx-line: rgba(44, 102, 176, 0.42);
-  --zx-blue: #2f6fed;
-  --zx-blue-soft: #85aef8;
-  --zx-cyan: #b7e4ff;
-  --zx-white: #f8fbff;
-  --zx-danger: #e15b64;
-  --zx-warning: #e8b85d;
-  --zx-success: #7ccfa5;
+  --zx-bg: #eef3f6;
+  --zx-shell: #f7fafc;
+  --zx-shell-soft: #e8eef3;
+  --zx-shell-text: #152235;
+  --zx-shell-line: rgba(31, 76, 122, 0.12);
+  --zx-bg-soft: #e9f1f6;
+  --zx-stage: #fbfdff;
+  --zx-panel: #ffffff;
+  --zx-panel-soft: #edf4f8;
+  --zx-canvas: #f8fbff;
+  --zx-canvas-soft: #e7eff4;
+  --zx-track: #e2ebf1;
+  --zx-ink: #0f1724;
+  --zx-muted: #617083;
+  --zx-line: rgba(43, 97, 167, 0.16);
+  --zx-line-strong: rgba(43, 97, 167, 0.28);
+  --zx-blue: #2563eb;
+  --zx-blue-soft: #3f78d8;
+  --zx-cyan: #66c7e8;
+  --zx-white: #ffffff;
+  --zx-danger: #c94554;
+  --zx-warning: #b7791f;
+  --zx-success: #16865c;
 
   /* 字体 */
   --font-sans: Inter, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
 
   /* shadcn/ui bridge */
-  --background: var(--zx-bg);
-  --foreground: var(--zx-canvas);
+  --background: var(--zx-canvas);
+  --foreground: var(--zx-ink);
   --primary: var(--zx-blue);
   --primary-foreground: var(--zx-white);
   --secondary: var(--zx-bg-soft);
-  --secondary-foreground: var(--zx-canvas-soft);
+  --secondary-foreground: var(--zx-ink);
   --muted: var(--zx-bg-soft);
   --muted-foreground: var(--zx-muted);
-  --card: var(--zx-stage);
-  --card-foreground: var(--zx-canvas);
+  --card: var(--zx-panel);
+  --card-foreground: var(--zx-ink);
+  --popover: var(--zx-panel);
+  --popover-foreground: var(--zx-ink);
   --border: var(--zx-line);
   --input: var(--zx-line);
   --ring: var(--zx-blue);
   --destructive: var(--zx-danger);
   --destructive-foreground: var(--zx-white);
   --accent: var(--zx-blue-soft);
-  --accent-foreground: var(--zx-ink);
+  --accent-foreground: var(--zx-white);
   --radius: 0.5rem;
 }
 
-/* 暗色主题保持一致 — ZhiXi 始终为暗色舞台 */
+/* 暗色类只保留黑色外框语义，内容区仍保持高对比浅色画布。 */
 .dark {
-  --background: var(--zx-bg);
-  --foreground: var(--zx-canvas);
+  --background: var(--zx-canvas);
+  --foreground: var(--zx-ink);
 }

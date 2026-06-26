@@ -34,4 +34,5 @@ class EvidencePackResponse(BaseModel):
     query_text: str
     retrieved_cases: list[RetrievedCaseItem]
     dictionary_hints: dict
+    context_metrics: dict = Field(default_factory=dict)
     limitations: list[str]

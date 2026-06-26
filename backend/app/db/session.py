@@ -21,3 +21,15 @@ def init_db() -> None:
     import app.models.retrieval  # noqa: F401
 
     SQLModel.metadata.create_all(engine)
+    _run_sqlite_migrations()
+
+
+def _run_sqlite_migrations() -> None:
+    if engine.url.get_backend_name() != "sqlite":
+        return
+    with engine.begin() as conn:
+        dict_columns = {
+            row[1] for row in conn.exec_driver_sql("PRAGMA table_info(background_dict_items)").all()
+        }
+        if "default_weight" not in dict_columns:
+            conn.exec_driver_sql("ALTER TABLE background_dict_items ADD COLUMN default_weight FLOAT")

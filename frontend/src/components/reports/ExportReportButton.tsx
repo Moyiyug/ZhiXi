@@ -15,9 +15,10 @@ export function ExportReportButton({ reportId }: ExportReportButtonProps) {
       size="sm"
       onClick={() => exportMut.mutate(reportId)}
       disabled={exportMut.isPending}
+      className="shrink-0"
     >
       <Download className="mr-1.5 h-4 w-4" />
-      {exportMut.isPending ? "导出中…" : "导出 Markdown"}
+      {exportMut.isPending ? "导出中..." : "导出 Markdown"}
     </Button>
   )
 }

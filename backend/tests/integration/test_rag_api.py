@@ -1,4 +1,3 @@
-import json
 
 from fastapi.testclient import TestClient
 
@@ -53,3 +52,6 @@ def test_evidence_pack(client: TestClient):
     assert "current_event" in data
     assert "query_text" in data
     assert "dictionary_hints" in data
+    assert "context_metrics" in data
+    assert "case_library" in data["context_metrics"]
+    assert "retrieval" in data["context_metrics"]

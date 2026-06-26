@@ -13,6 +13,7 @@ import {
 import { CaseCard } from "@/components/cases/CaseCard"
 import { CaseDetailDrawer } from "@/components/cases/CaseDetailDrawer"
 import { CaseFormDialog } from "@/components/cases/CaseFormDialog"
+import { BlueprintPanel } from "@/components/zhi/BlueprintPanel"
 import {
   useCases,
   useCreateCase,
@@ -30,6 +31,7 @@ export function CaseLibraryPage() {
   const [q, setQ] = useState("")
   const [debouncedQ, setDebouncedQ] = useState("")
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [domain, setDomain] = useState<string>("all")
   const [enabled, setEnabled] = useState<string>("all")
   const [embeddingStatus, setEmbeddingStatus] = useState<string>("all")
@@ -67,6 +69,20 @@ export function CaseLibraryPage() {
   const items = (data?.items as unknown[]) ?? []
   const total = (data?.total as number) ?? 0
   const totalPages = Math.ceil(total / 12)
+  const isInitialLoading = isLoading && items.length === 0
+  const isInitialEmpty =
+    !isLoading &&
+    items.length === 0 &&
+    !debouncedQ &&
+    domain === "all" &&
+    enabled === "all" &&
+    embeddingStatus === "all"
+
+  const openCreateForm = useCallback(() => {
+    setFormMode("create")
+    setEditData(null)
+    setFormOpen(true)
+  }, [])
 
   const handleSearch = useCallback((v: string) => {
     setQ(v)
@@ -78,34 +94,8 @@ export function CaseLibraryPage() {
   }, [])
 
   const handleImport = useCallback(() => {
-    const input = document.createElement("input")
-    input.type = "file"
-    input.accept = ".csv"
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (file) importMut.mutate(file)
-    }
-    input.click()
-  }, [importMut])
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  // Loading
-  if (isLoading && items.length === 0) {
-    return (
-      <div className="p-6">
-        <div className="mb-6 flex items-center gap-3">
-          <Skeleton className="h-10 w-64" />
-          <Skeleton className="h-10 w-32" />
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-44 w-full rounded-xl" />
-          ))}
-        </div>
-      </div>
-    )
-  }
+    fileInputRef.current?.click()
+  }, [])
 
   // Error
   if (isError) {
@@ -119,39 +109,21 @@ export function CaseLibraryPage() {
     )
   }
 
-  // Empty
-  if (!isLoading && items.length === 0 && !debouncedQ && domain === "all" && enabled === "all" && embeddingStatus === "all") {
-    return (
-      <div className="flex h-full items-center justify-center p-6">
-        <div className="max-w-md text-center">
-          <p className="mb-2 text-lg font-medium text-[--zx-canvas]">暂无可用案例素材</p>
-          <p className="mb-6 text-sm text-[--zx-muted]">
-            导入 CSV 或新增案例后，系统将自动构造 embedding 文本并参与检索。
-          </p>
-          <div className="flex justify-center gap-3">
-            <Button onClick={handleImport} variant="outline">
-              <Upload className="mr-1.5 h-4 w-4" />导入 CSV
-            </Button>
-            <Button onClick={() => { setFormMode("create"); setEditData(null); setFormOpen(true) }}>
-              <Plus className="mr-1.5 h-4 w-4" />新增案例
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="flex flex-col gap-4 p-6">
+    <BlueprintPanel className="mx-auto max-w-[1500px]" contentClassName="flex flex-col gap-4 p-5 md:p-6" label="Archive card library">
       {/* Toolbar */}
-      <div className="flex items-center gap-2">
-        <Button size="sm" onClick={() => { setFormMode("create"); setEditData(null); setFormOpen(true) }}>
-          <Plus className="mr-1 h-3.5 w-3.5" />新增
+      <div className="relative z-30 flex flex-wrap items-center gap-2">
+        <div className="mr-auto">
+          <h1 className="text-xl font-semibold text-[--zx-ink]">案例入库与素材管理</h1>
+          <p className="text-xs text-[--zx-muted]">维护用于事件评估和报告生成的历史案例素材。</p>
+        </div>
+        <Button size="sm" onClick={openCreateForm} disabled={isInitialLoading}>
+          <Plus className="mr-1 h-3.5 w-3.5" />新增案例
         </Button>
-        <Button size="sm" variant="outline" onClick={handleImport}>
-          <Upload className="mr-1 h-3.5 w-3.5" />导入 CSV
+        <Button size="sm" variant="outline" onClick={handleImport} disabled={isInitialLoading}>
+          <Upload className="mr-1 h-3.5 w-3.5" />CSV 入库
         </Button>
-        <Button size="sm" variant="outline" onClick={() => rebuildMut.mutate()} disabled={rebuildMut.isPending}>
+        <Button size="sm" variant="outline" onClick={() => rebuildMut.mutate()} disabled={isInitialLoading || rebuildMut.isPending}>
           <RefreshCw className="mr-1 h-3.5 w-3.5" />重建向量
         </Button>
         <input
@@ -173,10 +145,10 @@ export function CaseLibraryPage() {
           placeholder="搜索案例名称…"
           value={q}
           onChange={(e) => handleSearch(e.target.value)}
-          className="h-9 w-64"
+          className="h-9 w-full sm:w-64"
         />
         <Select value={domain} onValueChange={(v) => { if (v) { setDomain(v); setPage(1) } }}>
-          <SelectTrigger className="h-9 w-40">
+          <SelectTrigger className="h-9 w-full sm:w-40">
             <SelectValue placeholder="领域" />
           </SelectTrigger>
           <SelectContent>
@@ -187,7 +159,7 @@ export function CaseLibraryPage() {
           </SelectContent>
         </Select>
         <Select value={enabled} onValueChange={(v) => { if (v) { setEnabled(v); setPage(1) } }}>
-          <SelectTrigger className="h-9 w-32">
+          <SelectTrigger className="h-9 w-full sm:w-32">
             <SelectValue placeholder="启用状态" />
           </SelectTrigger>
           <SelectContent>
@@ -197,7 +169,7 @@ export function CaseLibraryPage() {
           </SelectContent>
         </Select>
         <Select value={embeddingStatus} onValueChange={(v) => { if (v) { setEmbeddingStatus(v); setPage(1) } }}>
-          <SelectTrigger className="h-9 w-36">
+          <SelectTrigger className="h-9 w-full sm:w-36">
             <SelectValue placeholder="向量状态" />
           </SelectTrigger>
           <SelectContent>
@@ -211,8 +183,28 @@ export function CaseLibraryPage() {
         <span className="ml-auto text-xs text-[--zx-muted]">{total} 条案例</span>
       </div>
 
-      {/* 搜索无结果 */}
-      {items.length === 0 && (
+      {isInitialLoading ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-44 w-full rounded-lg" />
+          ))}
+        </div>
+      ) : isInitialEmpty ? (
+        <div className="rounded-lg border border-dashed border-[--zx-line] bg-white/50 px-6 py-12 text-center">
+          <p className="mb-2 text-lg font-medium text-[--zx-ink]">暂无案例素材</p>
+          <p className="mx-auto mb-6 max-w-xl text-sm leading-6 text-[--zx-muted]">
+            案例入库是评估报告的参考素材层。导入 CSV 或新增案例后，系统会构造 embedding 文本，用于后续相似事件检索与报告依据整理。
+          </p>
+          <div className="flex justify-center gap-3">
+            <Button onClick={handleImport} variant="outline">
+              <Upload className="mr-1.5 h-4 w-4" />CSV 入库
+            </Button>
+            <Button onClick={openCreateForm}>
+              <Plus className="mr-1.5 h-4 w-4" />新增案例
+            </Button>
+          </div>
+        </div>
+      ) : items.length === 0 ? (
         <div className="py-12 text-center text-sm text-[--zx-muted]">
           未找到匹配案例{" "}
           <button
@@ -222,23 +214,22 @@ export function CaseLibraryPage() {
             清除筛选
           </button>
         </div>
+      ) : (
+        <div className="relative z-0 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {items.map((item) => {
+            const c = item as Record<string, unknown>
+            const caseId = c.id as number
+            return (
+              <CaseCard
+                key={caseId}
+                caseItem={c}
+                onClick={() => { setDetailId(caseId); setDetailOpen(true) }}
+                onToggle={() => toggleMut.mutate(caseId)}
+              />
+            )
+          })}
+        </div>
       )}
-
-      {/* 卡片网格 */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {items.map((item) => {
-          const c = item as Record<string, unknown>
-          const caseId = c.id as number
-          return (
-            <CaseCard
-              key={caseId}
-              caseItem={c}
-              onClick={() => { setDetailId(caseId); setDetailOpen(true) }}
-              onToggle={() => toggleMut.mutate(caseId)}
-            />
-          )
-        })}
-      </div>
 
       {/* 分页器 */}
       {totalPages > 1 && (
@@ -263,6 +254,7 @@ export function CaseLibraryPage() {
           setFormMode("edit")
           setFormOpen(true)
         }}
+        onDelete={(target) => setDeleteTarget(target)}
       />
 
       {/* 表单 Dialog */}
@@ -285,7 +277,7 @@ export function CaseLibraryPage() {
 
       {/* 删除确认 */}
       <Dialog open={deleteTarget != null} onOpenChange={() => setDeleteTarget(null)}>
-        <DialogContent className="border-[--zx-line] bg-[--zx-stage] text-[--zx-canvas]">
+        <DialogContent className="border-[--zx-line] bg-[--zx-stage] text-[--zx-ink]">
           <DialogHeader>
             <DialogTitle>确定删除案例「{deleteTarget?.title}」？</DialogTitle>
           </DialogHeader>
@@ -295,7 +287,10 @@ export function CaseLibraryPage() {
             <Button
               variant="destructive"
               onClick={() => {
-                if (deleteTarget) { deleteMut.mutate(deleteTarget.id); setDeleteTarget(null as unknown as { id: number; title: string } | null) }
+                if (deleteTarget) {
+                  deleteMut.mutate(deleteTarget.id)
+                  setDeleteTarget(null)
+                }
               }}
             >
               确认删除
@@ -303,6 +298,6 @@ export function CaseLibraryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </BlueprintPanel>
   )
 }

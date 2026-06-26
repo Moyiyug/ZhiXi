@@ -8,12 +8,14 @@ class EvaluationRequest(BaseModel):
     demo_event_id: str | None = None
     event_text: str | None = None
     top_k: int = Field(default=3, ge=1, le=10)
+    focus_options: list[str] = Field(default_factory=list)
 
 
 class EvaluationMetric(BaseModel):
     top_k: int
     average_final_score: float
     has_same_domain_hit: bool
+    focus_options: list[str] = Field(default_factory=list)
 
 
 class ManualScore(BaseModel):

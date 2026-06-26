@@ -1,4 +1,4 @@
-import { Card } from "@/components/ui/card"
+﻿import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -20,6 +20,7 @@ interface ProfileEditorProps {
 
 export function ProfileEditor({ profile, isLoading, onUpdate, onRetrieve, isRetrieving }: ProfileEditorProps) {
   const [keywordInput, setKeywordInput] = useState("")
+  const canRetrieve = Boolean(profile?.public_demands?.length)
 
   if (isLoading) {
     return (
@@ -53,7 +54,7 @@ export function ProfileEditor({ profile, isLoading, onUpdate, onRetrieve, isRetr
       {/* 摘要 */}
       <div>
         <p className="mb-1 text-xs text-[--zx-muted]">事件摘要</p>
-        <p className="line-clamp-3 text-sm leading-relaxed text-[--zx-canvas]">{profile.event_summary}</p>
+        <p className="line-clamp-3 text-sm leading-relaxed text-[--zx-ink]">{profile.event_summary}</p>
       </div>
 
       <Separator className="bg-[--zx-line]" />
@@ -64,6 +65,7 @@ export function ProfileEditor({ profile, isLoading, onUpdate, onRetrieve, isRetr
         <Select
           value={profile.domain}
           onValueChange={(v) => { if (v) onUpdate({ domain: v }) }}
+          disabled={isRetrieving}
         >
           <SelectTrigger className="h-9">
             <SelectValue />
@@ -84,6 +86,7 @@ export function ProfileEditor({ profile, isLoading, onUpdate, onRetrieve, isRetr
           onValueChange={(v) => onUpdate({ heat_level: (v as number[])[0] })}
           min={1} max={5} step={1}
           className="w-full"
+          disabled={isRetrieving}
         />
         <div className="flex justify-between text-[10px] text-[--zx-muted]">
           {HEAT_OPTIONS.map((h) => <span key={h.value}>{h.value}</span>)}
@@ -100,8 +103,9 @@ export function ProfileEditor({ profile, isLoading, onUpdate, onRetrieve, isRetr
               <Badge
                 key={d.value}
                 variant={selected ? "default" : "outline"}
-                className="cursor-pointer"
+                className={isRetrieving ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
                 onClick={() => {
+                  if (isRetrieving) return
                   const arr = profile.public_demands ?? []
                   onUpdate({
                     public_demands: selected
@@ -143,8 +147,9 @@ export function ProfileEditor({ profile, isLoading, onUpdate, onRetrieve, isRetr
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddKeyword() } }}
             placeholder="添加关键词"
             className="h-8 text-xs"
+            disabled={isRetrieving}
           />
-          <Button size="sm" variant="outline" onClick={handleAddKeyword}>添加</Button>
+          <Button size="sm" variant="outline" onClick={handleAddKeyword} disabled={isRetrieving}>添加</Button>
         </div>
       </div>
 
@@ -158,7 +163,7 @@ export function ProfileEditor({ profile, isLoading, onUpdate, onRetrieve, isRetr
             </span>
           )}
         </p>
-        <div className="h-2 w-full rounded-full bg-[--zx-bg]">
+        <div className="h-2 w-full rounded-full bg-[--zx-track]">
           <div
             className="h-full rounded-full bg-[--zx-blue] transition-all"
             style={{ width: `${profile.confidence * 100}%` }}
@@ -185,7 +190,10 @@ export function ProfileEditor({ profile, isLoading, onUpdate, onRetrieve, isRetr
 
       <Separator className="bg-[--zx-line]" />
 
-      <Button className="w-full" onClick={onRetrieve} disabled={isRetrieving}>
+      {!canRetrieve && (
+        <p className="text-xs text-[--zx-danger]">至少保留一个公众诉求后才能检索。</p>
+      )}
+      <Button className="w-full" onClick={onRetrieve} disabled={isRetrieving || !canRetrieve}>
         {isRetrieving ? "检索中…" : "检索参考案例"}
       </Button>
     </Card>

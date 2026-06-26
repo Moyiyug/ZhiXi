@@ -11,7 +11,7 @@ export function EmbeddingPreview({ embeddingText, modelName, dimensions }: Embed
     )
   }
   return (
-    <div className="rounded border border-[--zx-line] bg-[--zx-bg] p-3">
+    <div className="rounded border border-[--zx-line] bg-[--zx-panel-soft] p-3">
       <pre className="max-h-40 overflow-auto font-mono text-xs text-[--zx-muted] whitespace-pre-wrap">
         {embeddingText}
       </pre>

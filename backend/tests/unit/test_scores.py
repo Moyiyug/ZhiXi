@@ -94,4 +94,11 @@ class TestFinalScore:
         weights = {"semantic": 0.45, "demand": 0.20, "heat": 0.15, "domain": 0.10, "effect": 0.10}
         scores = {"semantic": 0.8, "demand": 1.0, "heat": 0.75, "domain": 1.0, "effect": 0.8}
         expected = 0.8 * 0.45 + 1.0 * 0.20 + 0.75 * 0.15 + 1.0 * 0.10 + 0.8 * 0.10
-        assert abs(scores["semantic"] * weights["semantic"] + scores["demand"] * weights["demand"] + scores["heat"] * weights["heat"] + scores["domain"] * weights["domain"] + scores["effect"] * weights["effect"] - expected) < 0.0001
+        actual = (
+            scores["semantic"] * weights["semantic"]
+            + scores["demand"] * weights["demand"]
+            + scores["heat"] * weights["heat"]
+            + scores["domain"] * weights["domain"]
+            + scores["effect"] * weights["effect"]
+        )
+        assert abs(actual - expected) < 0.0001

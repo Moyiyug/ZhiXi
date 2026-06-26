@@ -13,11 +13,11 @@ export function TopBar() {
   const keys = data?.keys ?? { dashscope: "missing", deepseek: "missing" }
 
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between border-b border-[--zx-line] bg-[--zx-stage]/60 px-6">
-      <div className="text-xs text-[--zx-muted]">
+    <header className="flex h-12 shrink-0 items-center justify-end gap-3 border-b border-[--zx-shell-line] bg-[--zx-shell] px-3 text-[--zx-shell-text] md:justify-between md:px-6">
+      <div className="hidden text-xs font-medium text-[--zx-muted] md:block">
         RAG 舆情处置建议辅助生成系统
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex min-w-0 items-center gap-3 md:gap-4">
         {/* API Key 状态 */}
         <span
           className={cn(

@@ -1,4 +1,4 @@
-import { motion } from "motion/react"
+﻿import { motion } from "motion/react"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
@@ -47,7 +47,7 @@ export function CaseCard({ caseItem, onClick, onToggle }: CaseCardProps) {
       >
         {/* 标题 + 启用开关 */}
         <div className="mb-3 flex items-start justify-between gap-2">
-          <h3 className="line-clamp-2 flex-1 text-sm font-semibold text-[--zx-canvas]">
+          <h3 className="line-clamp-2 flex-1 text-sm font-semibold text-[--zx-ink]">
             {title}
           </h3>
           <Switch
@@ -91,7 +91,7 @@ export function CaseCard({ caseItem, onClick, onToggle }: CaseCardProps) {
         {strategyTypes.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {strategyTypes.slice(0, 2).map((s) => (
-              <span key={s} className="rounded bg-[--zx-bg] px-1.5 py-0.5 text-[10px] text-[--zx-muted]">
+              <span key={s} className="rounded bg-[--zx-panel-soft] px-1.5 py-0.5 text-[10px] text-[--zx-muted]">
                 {s}
               </span>
             ))}

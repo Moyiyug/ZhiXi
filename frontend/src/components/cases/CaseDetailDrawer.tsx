@@ -12,12 +12,14 @@ import { EmbeddingPreview } from "./EmbeddingPreview"
 import { useCase, useGenerateEmbedding } from "@/hooks/useCases"
 import { formatHeatLevel } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { Pencil, Trash2, WandSparkles } from "lucide-react"
 
 interface CaseDetailDrawerProps {
   caseId: number | null
   open: boolean
   onClose: () => void
   onEdit: (data: Record<string, unknown>) => void
+  onDelete: (target: { id: number; title: string }) => void
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -27,14 +29,14 @@ const STATUS_STYLE: Record<string, string> = {
   failed: "bg-[--zx-danger]/10 text-[--zx-danger]",
 }
 
-export function CaseDetailDrawer({ caseId, open, onClose, onEdit }: CaseDetailDrawerProps) {
+export function CaseDetailDrawer({ caseId, open, onClose, onEdit, onDelete }: CaseDetailDrawerProps) {
   const { data, isLoading, error } = useCase(open ? caseId : null)
   const genEmbedding = useGenerateEmbedding()
 
   if (error) {
     return (
       <Sheet open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-        <SheetContent className="border-l border-[--zx-line] bg-[--zx-stage] text-[--zx-canvas]">
+        <SheetContent className="w-[min(420px,calc(100vw-1rem))] border-l border-[--zx-line] bg-[--zx-stage] text-[--zx-ink]">
           <p className="text-sm text-[--zx-danger]">加载失败，请重试</p>
         </SheetContent>
       </Sheet>
@@ -49,6 +51,9 @@ export function CaseDetailDrawer({ caseId, open, onClose, onEdit }: CaseDetailDr
   const effectScore = (c?.effect_score as number) ?? null
   const enabled = (c?.enabled as boolean) ?? true
   const embeddingStatus = (c?.embedding_status as string) ?? "none"
+  const embeddingText = (c?.embedding_text as string) ?? null
+  const embeddingModel = (c?.embedding_model as string) ?? null
+  const embeddingDimensions = (c?.embedding_dimensions as number) ?? null
   const eventDesc = (c?.event_description as string) ?? ""
   const strategyText = (c?.strategy_text as string) ?? ""
   const publicDemands = (c?.public_demands as string[]) ?? []
@@ -56,7 +61,7 @@ export function CaseDetailDrawer({ caseId, open, onClose, onEdit }: CaseDetailDr
 
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <SheetContent className="flex w-[420px] flex-col gap-0 border-l border-[--zx-line] bg-[--zx-stage] text-[--zx-canvas] sm:max-w-[420px]">
+      <SheetContent className="flex w-[min(420px,calc(100vw-1rem))] flex-col gap-0 border-l border-[--zx-line] bg-[--zx-stage] text-[--zx-ink] sm:max-w-[420px]">
         <SheetHeader className="pb-3">
           <SheetTitle className="text-base">{title || "案例详情"}</SheetTitle>
           {caseCode && <p className="text-xs text-[--zx-muted]">{caseCode}</p>}
@@ -115,7 +120,7 @@ export function CaseDetailDrawer({ caseId, open, onClose, onEdit }: CaseDetailDr
                   <p className="mb-1 text-xs text-[--zx-muted]">策略类型</p>
                   <div className="flex flex-wrap gap-1">
                     {strategyTypes.map((s) => (
-                      <span key={s} className="rounded bg-[--zx-bg] px-1.5 py-0.5 text-xs text-[--zx-blue-soft]">{s}</span>
+                      <span key={s} className="rounded bg-[--zx-panel-soft] px-1.5 py-0.5 text-xs text-[--zx-blue-soft]">{s}</span>
                     ))}
                   </div>
                 </div>
@@ -124,22 +129,22 @@ export function CaseDetailDrawer({ caseId, open, onClose, onEdit }: CaseDetailDr
               {/* 事件描述 */}
               <div>
                 <p className="mb-1 text-xs text-[--zx-muted]">事件核心描述</p>
-                <p className="text-sm leading-relaxed text-[--zx-canvas]">{eventDesc || "—"}</p>
+                <p className="text-sm leading-relaxed text-[--zx-ink]">{eventDesc || "—"}</p>
               </div>
 
               {/* 核心处置策略 */}
               <div>
                 <p className="mb-1 text-xs text-[--zx-muted]">核心处置策略</p>
-                <p className="text-sm leading-relaxed text-[--zx-canvas]">{strategyText || "—"}</p>
+                <p className="text-sm leading-relaxed text-[--zx-ink]">{strategyText || "—"}</p>
               </div>
 
               {/* Embedding 预览 */}
               <div>
                 <p className="mb-1 text-xs text-[--zx-muted]">Embedding 文本</p>
                 <EmbeddingPreview
-                  embeddingText={null}
-                  modelName="mock-embedding"
-                  dimensions={1024}
+                  embeddingText={embeddingText}
+                  modelName={embeddingModel ?? "mock-embedding"}
+                  dimensions={embeddingDimensions ?? 1024}
                 />
               </div>
             </>
@@ -148,23 +153,37 @@ export function CaseDetailDrawer({ caseId, open, onClose, onEdit }: CaseDetailDr
 
         {/* 底部操作 */}
         <Separator className="bg-[--zx-line]" />
-        <div className="flex gap-2 py-4">
+        <div className="grid grid-cols-1 gap-2 py-4 sm:grid-cols-3">
           <Button
             variant="outline"
             size="sm"
-            className="flex-1"
             onClick={() => { if (c) { onClose(); onEdit(c) } }}
             disabled={!c}
           >
+            <Pencil className="mr-1.5 h-3.5 w-3.5" />
             编辑
           </Button>
           <Button
             size="sm"
-            className="flex-1"
             onClick={() => { if (caseId) genEmbedding.mutate(caseId) }}
             disabled={genEmbedding.isPending}
           >
+            <WandSparkles className="mr-1.5 h-3.5 w-3.5" />
             {genEmbedding.isPending ? "生成中…" : "重新生成向量"}
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              if (caseId && c) {
+                onClose()
+                onDelete({ id: caseId, title: title || `#${caseId}` })
+              }
+            }}
+            disabled={!c}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            删除
           </Button>
         </div>
       </SheetContent>

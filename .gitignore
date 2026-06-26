@@ -1,4 +1,8 @@
-# Python
+# ============================================================
+# ZhiXi 智析 — Git 忽略规则
+# ============================================================
+
+# ---- Python ----
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -6,38 +10,89 @@ dist/
 .ruff_cache/
 .pytest_cache/
 .venv/
+*.egg
 
-# Node
+# ---- Node / Frontend ----
 node_modules/
 .pnpm-store/
+*.tsbuildinfo
+*.local
 
-# Environment
+# ---- Environment / Secrets (只提交 .example 模板) ----
 .env
 .env.*
+*.env
+*.env.*
 !.env.example
+!**/.env.example
 
-# Database
+# API keys / credentials / private keys
+*.key
+*.pem
+*.p12
+*.pfx
+*.secret
+*.token
+*api-key*
+*api_key*
+*apikey*
+*credentials*.json
+*service-account*.json
+secrets/
+.secrets/
+credentials/
+
+# ---- Database ----
 data/*.db
 data/*.sqlite*
 
-# IDE
+# ---- IDE ----
 .vscode/*
 !.vscode/extensions.json
 .idea/
 *.swp
 *.suo
+*.ntvs*
+*.njsproj
+*.sln
 
-# OS
+# ---- OS ----
 .DS_Store
 Thumbs.db
 Desktop.ini
 
-# Build
+# ---- Build Output ----
 dist-ssr/
-*.local
 
-# Logs
+# ---- Logs ----
 logs/
 *.log
 
-/docs
+# ---- 项目文档与数据（不提交到 Git） ----
+/docs/
+/docs/**
+/data/
+/data/**
+
+# ---- Agent / Claude 本地上下文（不提交到 Git） ----
+/.agents/
+/agents/
+/.claude/
+/claude/
+/AGENT.md
+/AGENTS.md
+/CLAUDE.md
+
+# nested local assistant folders
+.agents/
+agents/
+.claude/
+claude/
+
+# ---- Playwright E2E ----
+frontend/playwright-report/
+frontend/test-results/
+
+# ---- Python 虚拟环境（已在 backend/.gitignore 中，此处兜底） ----
+.venv/
+venv/

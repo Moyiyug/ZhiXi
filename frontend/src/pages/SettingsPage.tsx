@@ -1,9 +1,10 @@
-import { useQuery } from "@tanstack/react-query"
+﻿import { useQuery } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Separator } from "@/components/ui/separator"
+import { BlueprintPanel } from "@/components/zhi/BlueprintPanel"
 import { fetchPublicSettings } from "@/api/settings"
 import { apiFetch } from "@/api/client"
 import { SCORE_LABELS } from "@/lib/scores"
@@ -57,8 +58,8 @@ export function SettingsPage() {
   const s = settings!
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-6">
-      <h2 className="text-lg font-semibold text-[--zx-canvas]">系统设置</h2>
+    <BlueprintPanel className="mx-auto max-w-4xl" contentClassName="space-y-4 p-5 md:p-6" label="System configuration">
+      <h2 className="text-lg font-semibold text-[--zx-ink]">系统设置</h2>
 
       {/* Mock 模式 + Key 状态 */}
       <Card className="space-y-3 border-[--zx-line] bg-[--zx-stage] p-5">
@@ -78,7 +79,7 @@ export function SettingsPage() {
               return (
                 <div key={k} className="flex items-center gap-2">
                   <span className={cn("h-2 w-2 rounded-full", status === "configured" ? "bg-[--zx-success]" : "bg-[--zx-muted]")} />
-                  <span className="text-sm text-[--zx-canvas]">{label}</span>
+                  <span className="text-sm text-[--zx-ink]">{label}</span>
                   <span className={cn("text-xs", status === "configured" ? "text-[--zx-success]" : "text-[--zx-muted]")}>
                     {status === "configured" ? "已配置" : "未配置"}
                   </span>
@@ -93,9 +94,9 @@ export function SettingsPage() {
       <Card className="space-y-2 border-[--zx-line] bg-[--zx-stage] p-5">
         <span className="text-sm text-[--zx-muted]">模型配置（只读）</span>
         <div className="grid grid-cols-2 gap-3 text-xs">
-          <div><span className="text-[--zx-muted]">Embedding: </span><span className="text-[--zx-canvas]">{s.embedding_model}</span></div>
-          <div><span className="text-[--zx-muted]">LLM Fast: </span><span className="text-[--zx-canvas]">{s.llm_model_fast}</span></div>
-          <div className="col-span-2"><span className="text-[--zx-muted]">LLM Pro: </span><span className="text-[--zx-canvas]">{s.llm_model_pro}</span></div>
+          <div><span className="text-[--zx-muted]">Embedding: </span><span className="text-[--zx-ink]">{s.embedding_model}</span></div>
+          <div><span className="text-[--zx-muted]">LLM Fast: </span><span className="text-[--zx-ink]">{s.llm_model_fast}</span></div>
+          <div className="col-span-2"><span className="text-[--zx-muted]">LLM Pro: </span><span className="text-[--zx-ink]">{s.llm_model_pro}</span></div>
         </div>
       </Card>
 
@@ -106,10 +107,10 @@ export function SettingsPage() {
           {Object.entries(s.retrieval.weights).map(([k, v]) => (
             <div key={k} className="flex items-center gap-2 text-xs">
               <span className="w-32 text-[--zx-muted]">{SCORE_LABELS[k as keyof typeof SCORE_LABELS] ?? k}</span>
-              <div className="h-2 flex-1 rounded-full bg-[--zx-bg]">
+              <div className="h-2 flex-1 rounded-full bg-[--zx-track]">
                 <div className="h-full rounded-full bg-[--zx-blue]" style={{ width: `${v * 100}%` }} />
               </div>
-              <span className="w-8 text-right font-mono text-[--zx-canvas]">{(v * 100).toFixed(0)}%</span>
+              <span className="w-8 text-right font-mono text-[--zx-ink]">{(v * 100).toFixed(0)}%</span>
             </div>
           ))}
         </div>
@@ -128,7 +129,7 @@ export function SettingsPage() {
               return (
                 <div key={cat.key} className="rounded border border-[--zx-line]">
                   <button
-                    className="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-[--zx-canvas] hover:bg-white/5"
+                    className="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-[--zx-ink] hover:bg-white/5"
                     onClick={() => setExpandedCat(open ? null : cat.key)}
                   >
                     {cat.label} ({items.length})
@@ -138,7 +139,7 @@ export function SettingsPage() {
                     <div className="space-y-2 border-t border-[--zx-line] px-3 py-2">
                       {items.map((item: Record<string, unknown>, i: number) => (
                         <div key={i} className="text-xs">
-                          <p className="text-[--zx-canvas] font-medium">{String(item.key ?? "")}</p>
+                          <p className="text-[--zx-ink] font-medium">{String(item.key ?? "")}</p>
                           {Boolean(item.meaning) && <p className="text-[--zx-muted]">{String(item.meaning)}</p>}
                           {Boolean(item.report_hint) && <p className="text-[--zx-blue-soft]">报告: {String(item.report_hint)}</p>}
                           {Boolean(item.speech_hint) && <p className="text-[--zx-success]">话术: {String(item.speech_hint)}</p>}
@@ -152,6 +153,6 @@ export function SettingsPage() {
           </div>
         )}
       </Card>
-    </div>
+    </BlueprintPanel>
   )
 }

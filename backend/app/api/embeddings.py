@@ -21,7 +21,7 @@ def rebuild_embeddings(session: Session = Depends(get_session)) -> dict:
     from app.models.case import Case
     from app.services.embedding_service import generate_embedding_svc
 
-    stmt = select(Case).where(Case.enabled).where(Case.embedding_status != "ready")
+    stmt = select(Case).where(Case.enabled)
     cases = session.exec(stmt).all()
     for c in cases:
         generate_embedding_svc(c.id, session)

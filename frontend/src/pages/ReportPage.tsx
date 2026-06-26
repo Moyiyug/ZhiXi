@@ -22,10 +22,10 @@ export function ReportPage() {
   // Loading
   if (isLoading) {
     return (
-      <div className="flex h-full gap-0">
-        <div className="flex-1 space-y-6 overflow-auto p-6">
+      <div className="mx-auto flex min-h-full max-w-[1500px] flex-col gap-4 xl:flex-row">
+        <div className="min-w-0 flex-1 space-y-6 overflow-auto">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-xl bg-[--zx-canvas] p-6">
+            <div key={i} className="rounded-lg border border-[--zx-line] bg-[--zx-canvas] p-6">
               <Skeleton className="mb-3 h-6 w-48" />
               <Skeleton className="mb-2 h-4 w-full" />
               <Skeleton className="mb-2 h-4 w-3/4" />
@@ -34,7 +34,7 @@ export function ReportPage() {
             </div>
           ))}
         </div>
-        <div className="w-[320px] shrink-0 border-l border-[--zx-line] bg-[--zx-stage] p-4">
+        <div className="w-full shrink-0 rounded-lg border border-[--zx-line] bg-[--zx-stage] p-4 xl:w-[340px]">
           <Skeleton className="mb-3 h-4 w-24" />
           <Skeleton className="mb-2 h-3 w-full" />
           <Skeleton className="h-3 w-2/3" />
@@ -84,13 +84,18 @@ export function ReportPage() {
   }
 
   const handleViewEvidence = () => {
-    // Evidence is always visible in the right panel
+    const panel = document.getElementById("evidence-inspector")
+    if (panel) {
+      panel.scrollIntoView({ behavior: "smooth", block: "start" })
+      panel.classList.add("ring-2", "ring-[--zx-blue]")
+      setTimeout(() => panel.classList.remove("ring-2", "ring-[--zx-blue]"), 2000)
+    }
   }
 
   return (
-    <div className="flex h-full gap-0">
+    <div className="mx-auto flex min-h-full max-w-[1500px] flex-col gap-4 xl:flex-row">
       {/* 左：报告画布 */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="min-w-0 flex-1 overflow-auto">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <p className="text-xs text-[--zx-muted]">报告 #{report.id}</p>

@@ -33,12 +33,11 @@ def build_query_text(event_text: str, profile, dictionaries: dict) -> str:
         if items:
             demand_lines.append(f"{demand}表示{items[0]['meaning']}")
     heat_items = [i for i in dictionaries.get("heat_levels", []) if i["key"] == str(profile.heat_level)]
-    heat_meaning = heat_items[0]["meaning"] if heat_items else ""
+    heat_hint = heat_items[0]["report_hint"] if heat_items else ""
     return f"""当前事件：{event_text}
-事件摘要：{profile.event_summary}
-所属领域：{profile.domain}
+所属领域：{profile.domain}。
 公众诉求：{'、'.join(profile.public_demands)}。{'；'.join(demand_lines)}
-热度等级：{profile.heat_level}，{heat_meaning}
+热度等级：{profile.heat_level}，{heat_hint}
 风险关键词：{'、'.join(profile.risk_keywords)}
 检索目标：寻找相似历史案例及可借鉴处置策略。""".strip()
 

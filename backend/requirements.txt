@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlmodel
+pydantic
+pydantic-settings
+pandas
+numpy
+httpx
+python-multipart
+openai

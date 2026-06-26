@@ -37,6 +37,16 @@ def test_get_report_404(client: TestClient):
     assert r.status_code == 404
 
 
+def test_delete_report(client: TestClient):
+    r = _build_report(client)
+    report_id = r.json()["id"]
+    r2 = client.delete(f"/api/reports/{report_id}")
+    assert r2.status_code == 204
+
+    r3 = client.get(f"/api/reports/{report_id}")
+    assert r3.status_code == 404
+
+
 def test_regenerate_segment(client: TestClient):
     r = _build_report(client)
     report_id = r.json()["id"]
@@ -76,6 +86,9 @@ def test_report_has_three_titles(client: TestClient):
     assert "一、舆情画像与历史案例参考" in md
     assert "二、处置结论与回应话术" in md
     assert "三、免责声明与使用边界" in md
+    assert md.count("一、舆情画像与历史案例参考") == 1
+    assert md.count("二、处置结论与回应话术") == 1
+    assert md.count("三、免责声明与使用边界") == 1
 
 
 def test_report_no_forbidden_terms(client: TestClient):
@@ -83,6 +96,6 @@ def test_report_no_forbidden_terms(client: TestClient):
     report_id = r.json()["id"]
     r2 = client.get(f"/api/reports/{report_id}/export.md")
     md = r2.text
-    forbidden = ["全网监测显示", "PSM", "DID", "传播路径分析", "社交网络拓扑"]
+    forbidden = ["全网监测", "PSM", "DID", "传播路径分析", "社交网络拓扑"]
     for term in forbidden:
         assert term not in md, f"Forbidden term '{term}' found in report"

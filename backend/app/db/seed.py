@@ -47,10 +47,22 @@ DEFAULT_DICT_ITEMS = {
             "report_hint": "保持常规关注，不需要升级响应。",
         },
         {
+            "key": "2",
+            "label": "2 级 — 低热度",
+            "meaning": "事件在有限范围内传播，尚未形成广泛关注。",
+            "report_hint": "保持关注，准备基础回应口径。",
+        },
+        {
             "key": "3",
             "label": "3 级 — 中热度",
             "meaning": "事件在特定圈层传播，开始引起关注。",
             "report_hint": "建议发布阶段性说明，防止进一步发酵。",
+        },
+        {
+            "key": "4",
+            "label": "4 级 — 高热度",
+            "meaning": "事件在多平台广泛传播，公众情绪明显。",
+            "report_hint": "需快速发布正式声明，主动引导舆论方向。",
         },
         {
             "key": "5",
@@ -83,6 +95,29 @@ DEFAULT_DICT_ITEMS = {
             "label": "转移引导型",
             "meaning": "核心策略是将舆论注意力引导至正面议题或后续改进。",
             "report_hint": "注意平衡引导与回避的界限，避免被解读为转移焦点。",
+        },
+    ],
+    "risk_keywords": [
+        {
+            "key": "高校",
+            "label": "高校",
+            "meaning": "涉及高校场景，学生群体为核心受众。",
+            "report_hint": "需关注学生群体情绪和校园管理特殊性。",
+            "speech_hint": "回应应充分考虑学生群体的知情权和参与感。",
+        },
+        {
+            "key": "食品安全",
+            "label": "食品安全",
+            "meaning": "涉及食品卫生和公共健康安全。",
+            "report_hint": "需强调食品安全标准和检查流程。",
+            "speech_hint": "回应应引用具体检测数据和整改措施。",
+        },
+        {
+            "key": "政务公开",
+            "label": "政务公开",
+            "meaning": "涉及政府信息公开和透明治理。",
+            "report_hint": "需强调信息公开的法律依据和范围。",
+            "speech_hint": "回应应说明已公开和未公开信息的边界及原因。",
         },
     ],
     "domain_labels": [
@@ -162,13 +197,16 @@ DEMO_EVENTS = [
 
 def seed_dictionary() -> None:
     """Insert default dictionary items if the dictionary table is empty."""
-    from app.models.dictionary import BackgroundDictItem
+    from sqlmodel import select
 
+    from app.models.dictionary import BackgroundDictItem
     with Session(engine) as session:
-        count = session.query(BackgroundDictItem).count()
-        if count > 0:
-            logger.info(f"Dictionary already seeded ({count} items). Skipping.")
-            return
+        existing = {
+            (category, key)
+            for category, key in session.exec(
+                select(BackgroundDictItem.category, BackgroundDictItem.key)
+            ).all()
+        }
 
         items: list[BackgroundDictItem] = []
 
@@ -187,7 +225,8 @@ def seed_dictionary() -> None:
                     risk_hint=entry.get("risk_hint", ""),
                     extra_json=None,
                 )
-                items.append(item)
+                if (category, entry["key"]) not in existing:
+                    items.append(item)
 
         # Seed domain relations (dict of dicts, NOT a list)
         for source, relations in DEFAULT_DICT_ITEMS.get("domain_relations", {}).items():
@@ -199,19 +238,25 @@ def seed_dictionary() -> None:
                 report_hint="",
                 extra_json=relations,
             )
-            items.append(item)
+            if ("domain_relations", source) not in existing:
+                items.append(item)
 
-        session.add_all(items)
-        session.commit()
-        logger.info(f"Seeded {len(items)} dictionary items.")
+        if items:
+            session.add_all(items)
+            session.commit()
+            logger.info(f"Seeded {len(items)} missing dictionary items.")
+        else:
+            logger.info(f"Dictionary already complete ({len(existing)} items). Skipping.")
 
 
 def seed_demo_events() -> None:
     """Insert demo evaluation events if table is empty."""
+    from sqlmodel import func, select
+
     from app.models.evaluation import DemoEvent
 
     with Session(engine) as session:
-        count = session.query(DemoEvent).count()
+        count = session.exec(select(func.count()).select_from(DemoEvent)).one()
         if count > 0:
             logger.info(f"Demo events already seeded ({count} events). Skipping.")
             return

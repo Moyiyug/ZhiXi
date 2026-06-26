@@ -1,4 +1,4 @@
-import { useState } from "react"
+﻿import { useState } from "react"
 import { motion } from "motion/react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -31,7 +31,7 @@ export function RetrievedCaseCard({ result, index }: RetrievedCaseCardProps) {
             {index + 1}
           </span>
           <div className="min-w-0 flex-1">
-            <h4 className="truncate text-sm font-semibold text-[--zx-canvas]">{result.title}</h4>
+            <h4 className="truncate text-sm font-semibold text-[--zx-ink]">{result.title}</h4>
             <Badge variant="outline" className="mt-1 border-[--zx-blue]/30 bg-[--zx-blue]/10 text-xs text-[--zx-blue-soft]">
               {result.domain}
             </Badge>

@@ -15,22 +15,22 @@ export function SegmentActionBar({
   isRegenerating,
 }: SegmentActionBarProps) {
   return (
-    <div className="flex gap-2 border-t border-[--zx-line] pt-3">
+    <div className="grid grid-cols-1 gap-2 border-t border-[--zx-line] pt-3 sm:flex sm:flex-wrap">
       <Button
         variant="ghost"
         size="sm"
         onClick={onRegenerate}
         disabled={isRegenerating}
-        className="text-xs text-[--zx-muted] hover:text-[--zx-blue-soft]"
+        className="w-full justify-start text-xs text-[--zx-muted] hover:text-[--zx-blue-soft] sm:w-auto"
       >
         <RefreshCw className={`mr-1 h-3.5 w-3.5 ${isRegenerating ? "animate-spin" : ""}`} />
-        {isRegenerating ? "生成中…" : "重新生成"}
+        {isRegenerating ? "生成中..." : "重新生成"}
       </Button>
       <Button
         variant="ghost"
         size="sm"
         onClick={onCopy}
-        className="text-xs text-[--zx-muted] hover:text-[--zx-blue-soft]"
+        className="w-full justify-start text-xs text-[--zx-muted] hover:text-[--zx-blue-soft] sm:w-auto"
       >
         <Copy className="mr-1 h-3.5 w-3.5" />
         复制本段
@@ -39,7 +39,7 @@ export function SegmentActionBar({
         variant="ghost"
         size="sm"
         onClick={onViewEvidence}
-        className="text-xs text-[--zx-muted] hover:text-[--zx-blue-soft]"
+        className="w-full justify-start text-xs text-[--zx-muted] hover:text-[--zx-blue-soft] sm:w-auto"
       >
         <Eye className="mr-1 h-3.5 w-3.5" />
         查看依据
